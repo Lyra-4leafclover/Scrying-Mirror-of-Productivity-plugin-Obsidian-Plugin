@@ -1,9 +1,9 @@
 {
-  "id": "obsidian-scrying-mirror",
+  "id": "scrying-mirror",
   "name": "Scrying Mirror of Productivity",
   "version": "1.0.0",
   "minAppVersion": "1.0.0",
-  "description": "An obsidian luxury focus chrono, task matrix, lecture theater, telemetry heatmap, and journal studio with 2-way markdown vault sync.",
+  "description": "All-in-one focus sanctuary: Pomodoro flow chrono, directives matrix with unlimited nested subtasks, multi-timescale telemetry, and liquid writings vault sync.",
   "author": "Lyra",
   "authorUrl": "https://github.com/Lyra-4leafclover",
   "fundingUrl": "https://github.com/Lyra-4leafclover",
