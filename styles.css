@@ -1,6 +1,6 @@
 /* ==========================================================================
    SCRYING MIRROR — OBSIDIAN NATIVE PLUGIN STYLES
-   Full Real-Data Telemetry Charts (Day 24h, Week Bars, Month Grid, Year Heatmap)
+   Full Real-Data Telemetry Charts + Offline Study Logger
    ========================================================================== */
 
 .scrying-mirror-obsidian-container {
@@ -479,7 +479,45 @@
   color: var(--text-normal);
 }
 
-/* 4. TELEMETRY STATS & CHARTS */
+/* 4. TELEMETRY STATS & OFFLINE STUDY LOGGER */
+.sm-manual-log-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--interactive-accent, #a78bfa);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.sm-manual-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-monospace);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--interactive-accent, #a78bfa);
+  margin-bottom: 10px;
+}
+
+.sm-manual-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sm-manual-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sm-manual-field label {
+  font-family: var(--font-monospace);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
 .sm-stats-scale-tabs {
   display: flex;
   gap: 6px;

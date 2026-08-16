@@ -51,6 +51,14 @@ class ScryingMirrorPlugin extends Plugin {
       }
     });
 
+    this.addCommand({
+      id: 'log-offline-study',
+      name: 'Log Offline Study / Focus Hours',
+      callback: () => {
+        this.activateView('stats');
+      }
+    });
+
     // Add Settings Tab
     this.addSettingTab(new ScryingMirrorSettingTab(this.app, this));
 
@@ -268,6 +276,34 @@ class ScryingMirrorPlugin extends Plugin {
     localStorage.setItem('sm_vault_telemetry', JSON.stringify(data));
   }
 
+  // --- MANUAL OFFLINE STUDY LOGGER ---
+  async recordTelemetryManualSession(dateStr, durationMins, subject = 'Offline Study', category = 'Study') {
+    const data = await this.getTelemetryData();
+    const targetDate = dateStr || new Date().toISOString().split('T')[0];
+    const currentHour = new Date().getHours();
+
+    if (!data.history[targetDate]) {
+      data.history[targetDate] = { focusMins: 0, tasksDone: 0, hourly: Array(24).fill(0), sessions: [] };
+    }
+    if (!data.history[targetDate].hourly) {
+      data.history[targetDate].hourly = Array(24).fill(0);
+    }
+
+    data.history[targetDate].focusMins += durationMins;
+    data.history[targetDate].hourly[currentHour] = (data.history[targetDate].hourly[currentHour] || 0) + durationMins;
+    data.history[targetDate].sessions.push({
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' (Manual)',
+      duration: durationMins,
+      task: `${subject} [${category}]`
+    });
+
+    data.totalFocusMins += durationMins;
+    this.calculateStreaks(data);
+
+    localStorage.setItem('sm_vault_telemetry', JSON.stringify(data));
+    new Notice(`✓ Logged ${(durationMins / 60).toFixed(1)}h of offline study for ${targetDate}`);
+  }
+
   async recordTelemetryTaskDone() {
     const data = await this.getTelemetryData();
     const today = new Date().toISOString().split('T')[0];
@@ -428,6 +464,8 @@ class ScryingMirrorView extends ItemView {
     container.empty();
     container.addClass('scrying-mirror-obsidian-container');
 
+    const todayStr = new Date().toISOString().split('T')[0];
+
     container.innerHTML = `
       <div class="sm-top-hud">
         <div class="sm-hud-left">
@@ -559,6 +597,11 @@ class ScryingMirrorView extends ItemView {
               <button class="sm-duration-preset" data-mins="50">50m (Deep)</button>
               <button class="sm-duration-preset" data-mins="90">90m (Ultra)</button>
             </div>
+
+            <!-- Quick Offline Logger Link -->
+            <button id="sm-pomodoro-offline-btn" class="sm-btn-sec" style="font-size: 0.72rem; margin-top: 6px; border-style: dashed;">
+              ⏱️ Forgot to turn on timer? Log offline study hours
+            </button>
           </div>
         </div>
 
@@ -566,11 +609,56 @@ class ScryingMirrorView extends ItemView {
         <div id="sm-view-stats" class="sm-subview">
           <div class="sm-panel-header">
             <h3>Productivity Telemetry &amp; Analytics</h3>
-            <div class="sm-stats-scale-tabs">
-              <button class="sm-scale-tab active" data-scale="day">DAY</button>
-              <button class="sm-scale-tab" data-scale="week">WEEK</button>
-              <button class="sm-scale-tab" data-scale="month">MONTH</button>
-              <button class="sm-scale-tab" data-scale="year">YEAR (365D)</button>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button id="sm-open-manual-log-btn" class="sm-btn-primary" style="font-size: 0.72rem; padding: 4px 10px;">+ LOG OFFLINE STUDY</button>
+              <div class="sm-stats-scale-tabs">
+                <button class="sm-scale-tab active" data-scale="day">DAY</button>
+                <button class="sm-scale-tab" data-scale="week">WEEK</button>
+                <button class="sm-scale-tab" data-scale="month">MONTH</button>
+                <button class="sm-scale-tab" data-scale="year">YEAR (365D)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Offline Study Modal/Card -->
+          <div id="sm-manual-log-box" class="sm-manual-log-card" style="display: none;">
+            <div class="sm-manual-log-header">
+              <span>⏱️ LOG OFFLINE / UNTRACKED STUDY SESSION</span>
+              <button id="sm-manual-log-close" class="sm-btn-del-task">&times;</button>
+            </div>
+            <div class="sm-manual-log-form">
+              <div class="sm-manual-row">
+                <div class="sm-manual-field">
+                  <label>Duration</label>
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    <input type="number" id="sm-manual-hours" class="sm-select" style="width: 60px;" min="0" max="24" value="1">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">hrs</span>
+                    <input type="number" id="sm-manual-mins" class="sm-select" style="width: 60px;" min="0" max="59" value="0">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">mins</span>
+                  </div>
+                </div>
+                <div class="sm-manual-field">
+                  <label>Date</label>
+                  <input type="date" id="sm-manual-date" class="sm-input" value="${todayStr}" style="width: 140px;">
+                </div>
+                <div class="sm-manual-field">
+                  <label>Category</label>
+                  <select id="sm-manual-category" class="sm-select">
+                    <option value="Study" selected>Study</option>
+                    <option value="Deep Work">Deep Work</option>
+                    <option value="Projects">Projects</option>
+                    <option value="Habits">Habits</option>
+                  </select>
+                </div>
+              </div>
+              <div class="sm-manual-field" style="margin-top: 8px;">
+                <label>Subject / Activity</label>
+                <input type="text" id="sm-manual-subject" class="sm-input" placeholder="e.g. 2 hours DWDM record writing, Reading Algorithms...">
+              </div>
+              <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+                <button id="sm-manual-cancel-btn" class="sm-btn-sec">Cancel</button>
+                <button id="sm-manual-save-btn" class="sm-btn-primary">✦ SAVE TO STATS &amp; VAULT</button>
+              </div>
             </div>
           </div>
 
@@ -804,6 +892,64 @@ class ScryingMirrorView extends ItemView {
       clearFocusBanner.addEventListener('click', () => {
         this.activeFocusTask = null;
         container.querySelector('#sm-active-task-banner').style.display = 'none';
+      });
+    }
+
+    // Quick offline logger button in Pomodoro
+    const pomoOfflineBtn = container.querySelector('#sm-pomodoro-offline-btn');
+    if (pomoOfflineBtn) {
+      pomoOfflineBtn.addEventListener('click', () => {
+        this.switchView('stats');
+        const box = container.querySelector('#sm-manual-log-box');
+        if (box) box.style.display = 'block';
+      });
+    }
+
+    // --- MANUAL OFFLINE STUDY LOGGER EVENTS ---
+    const openManualLog = container.querySelector('#sm-open-manual-log-btn');
+    const manualLogBox = container.querySelector('#sm-manual-log-box');
+    if (openManualLog && manualLogBox) {
+      openManualLog.addEventListener('click', () => {
+        manualLogBox.style.display = manualLogBox.style.display === 'none' ? 'block' : 'none';
+      });
+    }
+
+    const closeManualLog = container.querySelector('#sm-manual-log-close');
+    if (closeManualLog && manualLogBox) {
+      closeManualLog.addEventListener('click', () => {
+        manualLogBox.style.display = 'none';
+      });
+    }
+
+    const cancelManualLog = container.querySelector('#sm-manual-cancel-btn');
+    if (cancelManualLog && manualLogBox) {
+      cancelManualLog.addEventListener('click', () => {
+        manualLogBox.style.display = 'none';
+      });
+    }
+
+    const saveManualLog = container.querySelector('#sm-manual-save-btn');
+    if (saveManualLog && manualLogBox) {
+      saveManualLog.addEventListener('click', async () => {
+        const h = parseInt(container.querySelector('#sm-manual-hours').value) || 0;
+        const m = parseInt(container.querySelector('#sm-manual-mins').value) || 0;
+        const totalMins = (h * 60) + m;
+
+        if (totalMins <= 0) {
+          new Notice('Please enter a duration greater than 0.');
+          return;
+        }
+
+        const dateStr = container.querySelector('#sm-manual-date').value || new Date().toISOString().split('T')[0];
+        const subject = container.querySelector('#sm-manual-subject').value.trim() || 'Offline Study Session';
+        const category = container.querySelector('#sm-manual-category').value || 'Study';
+
+        await this.plugin.recordTelemetryManualSession(dateStr, totalMins, subject, category);
+        
+        container.querySelector('#sm-manual-subject').value = '';
+        manualLogBox.style.display = 'none';
+
+        await this.renderTelemetry(container);
       });
     }
 
@@ -1126,7 +1272,7 @@ class ScryingMirrorView extends ItemView {
         });
         sessionsBox.innerHTML = sHtml;
       } else {
-        sessionsBox.innerHTML = `<div class="sm-empty-msg" style="padding: 12px 0;">No pomodoro sessions logged yet today. Click "Focus Chrono" to begin.</div>`;
+        sessionsBox.innerHTML = `<div class="sm-empty-msg" style="padding: 12px 0;">No pomodoro sessions logged yet today. Click "Focus Chrono" or "+ LOG OFFLINE STUDY" to begin.</div>`;
       }
     }
   }
@@ -1208,7 +1354,7 @@ class ScryingMirrorView extends ItemView {
       if (dayData.focusMins > 90 || dayData.tasksDone >= 5) level = 4;
       else if (dayData.focusMins > 50 || dayData.tasksDone >= 3) level = 3;
       else if (dayData.focusMins > 20 || dayData.tasksDone >= 1) level = 2;
-      else if (dayData.focusMins > 0) level = 1;
+      else if (dayData.focusMins > 0 || dayData.tasksDone > 0) level = 1;
 
       html += `
         <div class="sm-month-cell level-${level} ${isToday ? 'is-today' : ''}">
@@ -1234,7 +1380,6 @@ class ScryingMirrorView extends ItemView {
     let html = '';
     const now = new Date();
 
-    // 52 weeks x 7 days
     for (let w = 51; w >= 0; w--) {
       html += '<div class="sm-heat-col">';
       for (let d = 0; d < 7; d++) {
