@@ -1,6 +1,6 @@
 /* ==========================================================================
    SCRYING MIRROR — OBSIDIAN NATIVE PLUGIN STYLES
-   Infinite Scrolling, Directives Matrix, Telemetry, Journal Studio (Edit/Del/Sort)
+   Infinite Scrolling, Directives, Telemetry, Journal Studio with Unlimited Images
    ========================================================================== */
 
 .scrying-mirror-obsidian-container {
@@ -100,7 +100,7 @@
   color: var(--text-normal);
 }
 
-/* MIRROR SURFACE - INFINITE SCROLLING CONTAINER */
+/* MIRROR SURFACE */
 .sm-mirror-surface {
   flex: 1;
   display: flex;
@@ -177,7 +177,7 @@
   color: var(--interactive-accent, #a78bfa);
 }
 
-/* 2. DIRECTIVES & TASK MATRIX - INFINITE SCROLL */
+/* 2. DIRECTIVES & TASK MATRIX */
 .sm-progress-card {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
@@ -286,7 +286,7 @@
   padding-bottom: 24px;
 }
 
-/* ZERO-SHRINK TASK WRAPPER */
+/* TASK WRAPPER */
 .sm-task-wrapper {
   display: flex;
   flex-direction: column;
@@ -1077,7 +1077,7 @@
   line-height: 1.6;
 }
 
-/* 6. EXPANSIVE JOURNAL STUDIO WITH EDIT, DELETE, PREVIEW, SORT */
+/* 6. EXPANSIVE JOURNAL STUDIO WITH UNLIMITED INLINE IMAGES & FORMATTING TOOLBAR */
 .sm-journal-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1113,6 +1113,44 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 4px;
+}
+
+/* Editor Toolbar */
+.sm-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+}
+
+.sm-tb-btn {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sm-tb-btn:hover {
+  border-color: var(--interactive-accent, #a78bfa);
+  color: var(--interactive-accent, #a78bfa);
+}
+
+.sm-journal-textarea {
+  background: var(--background-primary) !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  font-family: var(--font-text) !important;
+  font-size: 0.88rem !important;
 }
 
 .sm-journal-list-grid {
@@ -1204,19 +1242,32 @@
   line-height: 1.5;
 }
 
+/* FULL READING DRAWER WITH NATIVE MARKDOWN & IMAGE RENDERING */
 .sm-journal-body-drawer {
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 16px 20px;
   margin-top: 6px;
 }
 
 .sm-journal-body-text {
   font-family: var(--font-text);
-  font-size: 0.85rem;
-  line-height: 1.7;
+  font-size: 0.88rem;
+  line-height: 1.75;
   color: var(--text-normal);
+}
+
+/* NATIVE IMAGE EMBED STYLING */
+.sm-journal-body-text img,
+.markdown-rendered img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 12px 0;
+  display: block;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--background-modifier-border);
 }
 
 .sm-empty-msg {

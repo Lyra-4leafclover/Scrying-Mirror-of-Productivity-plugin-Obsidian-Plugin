@@ -3,7 +3,7 @@
  * Author: Lyra
  * License: MIT
  */
-const { Plugin, ItemView, WorkspaceLeaf, PluginSettingTab, Setting, Notice, TFile, normalizePath } = require('obsidian');
+const { Plugin, ItemView, WorkspaceLeaf, PluginSettingTab, Setting, Notice, TFile, MarkdownRenderer, normalizePath } = require('obsidian');
 
 const VIEW_TYPE_SCRYING_MIRROR = 'scrying-mirror-view';
 
@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   tasksFilePath: 'ScryingMirror/Tasks.md',
   lecturesFolderPath: 'ScryingMirror/Lectures',
   journalFolderPath: 'ScryingMirror/Journal',
+  attachmentsFolderPath: 'ScryingMirror/Attachments',
   statsFilePath: 'ScryingMirror/Telemetry.json',
   logToDailyNotes: true,
   defaultFocusDuration: 25,
@@ -454,6 +455,20 @@ ${notesContent}
     new Notice(`✓ Synced notes to ${filePath}`);
   }
 
+  async saveImageAttachmentToVault(fileName, arrayBuffer) {
+    await this.ensureFolderExists(this.settings.attachmentsFolderPath);
+    const safeName = fileName.replace(/[/\\?%*:|"<>]/g, '-');
+    const filePath = normalizePath(`${this.settings.attachmentsFolderPath}/${safeName}`);
+    let file = this.app.vault.getAbstractFileByPath(filePath);
+
+    if (!file) {
+      file = await this.app.vault.createBinary(filePath, arrayBuffer);
+    } else if (file instanceof TFile) {
+      await this.app.vault.modifyBinary(file, arrayBuffer);
+    }
+    return file;
+  }
+
   async saveJournalPostToVault(title, summary, readTime, content) {
     await this.ensureFolderExists(this.settings.journalFolderPath);
     const safeTitle = (title || 'Journal Log').replace(/[/\\?%*:|"<>]/g, '-').trim();
@@ -895,7 +910,7 @@ class ScryingMirrorView extends ItemView {
           </div>
         </div>
 
-        <!-- 6. VIEW: JOURNAL STUDIO (EXPANDED WITH EDIT, DELETE, REORDER, PREVIEW) -->
+        <!-- 6. VIEW: JOURNAL STUDIO (RICH MEDIA & UNLIMITED INLINE IMAGES) -->
         <div id="sm-view-journal" class="sm-subview">
           <div class="sm-panel-header">
             <h3>Liquid Writings Studio</h3>
@@ -914,7 +929,7 @@ class ScryingMirrorView extends ItemView {
             <span id="sm-journal-count" style="font-family: var(--font-monospace); font-size: 0.72rem; color: var(--text-muted);">0 Articles</span>
           </div>
           
-          <!-- Journal Composer (for New Post or Editing) -->
+          <!-- Journal Composer (with Image Upload, Clipboard Paste, Markdown Tools) -->
           <div id="sm-journal-composer-box" class="sm-journal-composer-card" style="display: none;">
             <div class="sm-composer-title-row">
               <span id="sm-composer-heading" style="font-family: var(--font-monospace); font-size: 0.76rem; font-weight: 600; color: var(--interactive-accent, #a78bfa);">✦ WRITE NEW ARTICLE</span>
@@ -922,7 +937,23 @@ class ScryingMirrorView extends ItemView {
             </div>
             <input type="text" id="sm-journal-title" class="sm-input" placeholder="Article / Log Title (e.g. Day 1: Architecture Breakdown)...">
             <input type="text" id="sm-journal-summary" class="sm-input" placeholder="Short reflection summary...">
-            <textarea id="sm-journal-content" class="sm-notes-area" style="height: 220px; margin: 6px 0;" placeholder="Write your markdown log here... Supports full Markdown headings, bullet points, checklists, and code snippets!"></textarea>
+            
+            <!-- Rich Media Formatting Toolbar -->
+            <div class="sm-editor-toolbar">
+              <input type="file" id="sm-journal-img-file-input" accept="image/*" style="display: none;">
+              <button id="sm-tb-btn-img" class="sm-tb-btn" title="Upload Image">🖼️ Add Image</button>
+              <button id="sm-tb-btn-bold" class="sm-tb-btn" title="Bold Text">𝗕 Bold</button>
+              <button id="sm-tb-btn-italic" class="sm-tb-btn" title="Italic Text">𝘐 Italic</button>
+              <button id="sm-tb-btn-h2" class="sm-tb-btn" title="Heading 2">H2</button>
+              <button id="sm-tb-btn-list" class="sm-tb-btn" title="Bullet List">• List</button>
+              <button id="sm-tb-btn-check" class="sm-tb-btn" title="Task Checkbox">☑ Checkbox</button>
+              <button id="sm-tb-btn-quote" class="sm-tb-btn" title="Blockquote">❝ Quote</button>
+              <button id="sm-tb-btn-code" class="sm-tb-btn" title="Code Block">&lt;/&gt; Code</button>
+              <span style="font-family: var(--font-monospace); font-size: 0.65rem; color: var(--text-muted); margin-left: auto;">💡 Tip: You can also Paste (Ctrl+V) or Drag images directly!</span>
+            </div>
+
+            <textarea id="sm-journal-content" class="sm-notes-area sm-journal-textarea" style="height: 240px; margin: 4px 0;" placeholder="Write your markdown log here... Insert unlimited images anywhere between your paragraphs! Supports drag & drop and clipboard paste (Ctrl+V)."></textarea>
+            
             <div style="display: flex; justify-content: flex-end; gap: 8px;">
               <button id="sm-journal-cancel-btn" class="sm-btn-sec">CANCEL</button>
               <button id="sm-journal-save-btn" class="sm-btn-primary">✦ PUBLISH LOG TO VAULT</button>
@@ -956,6 +987,18 @@ class ScryingMirrorView extends ItemView {
     if (viewName === 'todo') this.renderTasks(container);
     if (viewName === 'stats') this.renderTelemetry(container);
     if (viewName === 'journal') this.renderJournalLogs(container);
+  }
+
+  insertTextAtCursor(textarea, prefix, suffix = '') {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selected = text.substring(start, end);
+    const replacement = prefix + selected + suffix;
+    textarea.value = text.substring(0, start) + replacement + text.substring(end);
+    textarea.focus();
+    textarea.selectionStart = start + prefix.length;
+    textarea.selectionEnd = start + prefix.length + selected.length;
   }
 
   bindViewEvents(container) {
@@ -1176,9 +1219,12 @@ class ScryingMirrorView extends ItemView {
       });
     }
 
-    // --- JOURNAL STUDIO EVENTS ---
+    // --- JOURNAL STUDIO & IMAGE HANDLING EVENTS ---
     const toggleComposer = container.querySelector('#sm-toggle-journal-composer');
     const composerBox = container.querySelector('#sm-journal-composer-box');
+    const journalTextarea = container.querySelector('#sm-journal-content');
+    const imgFileInput = container.querySelector('#sm-journal-img-file-input');
+
     if (toggleComposer && composerBox) {
       toggleComposer.addEventListener('click', () => {
         this.editingJournalFile = null;
@@ -1186,8 +1232,86 @@ class ScryingMirrorView extends ItemView {
         container.querySelector('#sm-journal-save-btn').textContent = '✦ PUBLISH LOG TO VAULT';
         container.querySelector('#sm-journal-title').value = '';
         container.querySelector('#sm-journal-summary').value = '';
-        container.querySelector('#sm-journal-content').value = '';
+        journalTextarea.value = '';
         composerBox.style.display = composerBox.style.display === 'none' ? 'flex' : 'none';
+      });
+    }
+
+    // Toolbar Formatting Actions
+    const boldBtn = container.querySelector('#sm-tb-btn-bold');
+    if (boldBtn) boldBtn.addEventListener('click', () => this.insertTextAtCursor(journalTextarea, '**', '**'));
+    const italicBtn = container.querySelector('#sm-tb-btn-italic');
+    if (italicBtn) italicBtn.addEventListener('click', () => this.insertTextAtCursor(journalTextarea, '*', '*'));
+    const h2Btn = container.querySelector('#sm-tb-btn-h2');
+    if (h2Btn) h2Btn.addEventListener('click', () => this.insertTextAtCursor(journalTextarea, '\n## '));
+    const listBtn = container.querySelector('#sm-tb-btn-list');
+    if (listBtn) listBtn.addEventListener('click', () => this.insertTextAtCursor(journalTextarea, '\n- '));
+    const checkBtn = container.querySelector('#sm-tb-btn-check');
+    if (checkBtn) checkBtn.addEventListener('click', () => this.insertTextAtCursor(journalTextarea, '\n- [ ] '));
+    const quoteBtn = container.querySelector('#sm-tb-btn-quote');
+    if (quoteBtn) quoteBtn.addEventListener('click', () => this.insertTextAtCursor(journalTextarea, '\n> '));
+    const codeBtn = container.querySelector('#sm-tb-btn-code');
+    if (codeBtn) codeBtn.addEventListener('click', () => this.insertTextAtCursor(journalTextarea, '```\n', '\n```'));
+
+    // Image Upload Button Trigger
+    const imgBtn = container.querySelector('#sm-tb-btn-img');
+    if (imgBtn && imgFileInput) {
+      imgBtn.addEventListener('click', () => {
+        imgFileInput.click();
+      });
+
+      imgFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const arrayBuffer = await file.arrayBuffer();
+          const timestamp = Date.now();
+          const ext = file.name.split('.').pop() || 'png';
+          const savedName = `image_${timestamp}.${ext}`;
+          const savedFile = await this.plugin.saveImageAttachmentToVault(savedName, arrayBuffer);
+          
+          this.insertTextAtCursor(journalTextarea, `\n![${file.name}](${savedFile.path})\n`);
+          new Notice(`✓ Added image: ${savedName}`);
+          imgFileInput.value = '';
+        }
+      });
+    }
+
+    // Clipboard Paste (Ctrl+V) Image Handler on Journal Textarea
+    if (journalTextarea) {
+      journalTextarea.addEventListener('paste', async (e) => {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (const item of items) {
+          if (item.type.indexOf('image') === 0) {
+            e.preventDefault();
+            const blob = item.getAsFile();
+            const arrayBuffer = await blob.arrayBuffer();
+            const timestamp = Date.now();
+            const ext = item.type.split('/')[1] || 'png';
+            const savedName = `pasted_image_${timestamp}.${ext}`;
+            const savedFile = await this.plugin.saveImageAttachmentToVault(savedName, arrayBuffer);
+
+            this.insertTextAtCursor(journalTextarea, `\n![Image](${savedFile.path})\n`);
+            new Notice(`✓ Pasted image saved to ${savedFile.path}`);
+          }
+        }
+      });
+
+      // Drag & Drop Image Handler
+      journalTextarea.addEventListener('drop', async (e) => {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          const file = e.dataTransfer.files[0];
+          if (file.type.startsWith('image/')) {
+            e.preventDefault();
+            const arrayBuffer = await file.arrayBuffer();
+            const timestamp = Date.now();
+            const ext = file.name.split('.').pop() || 'png';
+            const savedName = `dropped_${timestamp}.${ext}`;
+            const savedFile = await this.plugin.saveImageAttachmentToVault(savedName, arrayBuffer);
+
+            this.insertTextAtCursor(journalTextarea, `\n![${file.name}](${savedFile.path})\n`);
+            new Notice(`✓ Dropped image saved to ${savedFile.path}`);
+          }
+        }
       });
     }
 
@@ -1212,7 +1336,7 @@ class ScryingMirrorView extends ItemView {
       journalBtn.addEventListener('click', async () => {
         const title = container.querySelector('#sm-journal-title').value.trim();
         const summary = container.querySelector('#sm-journal-summary').value.trim();
-        const content = container.querySelector('#sm-journal-content').value.trim();
+        const content = journalTextarea.value.trim();
         if (title && content) {
           if (this.editingJournalFile) {
             await this.plugin.updateJournalPostInVault(this.editingJournalFile, title, summary, content);
@@ -1221,7 +1345,7 @@ class ScryingMirrorView extends ItemView {
           }
           container.querySelector('#sm-journal-title').value = '';
           container.querySelector('#sm-journal-summary').value = '';
-          container.querySelector('#sm-journal-content').value = '';
+          journalTextarea.value = '';
           composerBox.style.display = 'none';
           this.editingJournalFile = null;
           await this.renderJournalLogs(container);
@@ -1663,7 +1787,7 @@ class ScryingMirrorView extends ItemView {
     yearGrid.innerHTML = html;
   }
 
-  // --- JOURNAL LOGS RENDERER WITH EDIT, DELETE, PREVIEW & REORDER ---
+  // --- JOURNAL LOGS RENDERER WITH RICH OBSIDIAN MARKDOWN & IMAGE SUPPORT ---
   async renderJournalLogs(container) {
     const list = container.querySelector('#sm-journal-list');
     if (!list) return;
@@ -1686,88 +1810,71 @@ class ScryingMirrorView extends ItemView {
       logs.sort((a, b) => a.title.localeCompare(b.title));
     }
 
-    let html = '';
+    list.empty();
+
     logs.forEach((log, idx) => {
       const isExpanded = this.expandedJournalPosts.has(log.file.path);
 
-      html += `
-        <div class="sm-journal-card" data-idx="${idx}">
-          <div class="sm-journal-header">
-            <div class="sm-journal-title-box">
-              <span class="sm-journal-title">${log.title}</span>
-              <span class="sm-journal-date">${log.date}</span>
-            </div>
-            <div class="sm-journal-card-actions">
-              <button class="sm-btn-j-action sm-btn-j-preview" data-idx="${idx}" title="Preview / Read">
-                ${isExpanded ? '▲ Collapse' : '👁️ Read'}
-              </button>
-              <button class="sm-btn-j-action sm-btn-j-edit" data-idx="${idx}" title="Edit in Studio">✏️ Edit</button>
-              <button class="sm-btn-j-action sm-btn-j-open" data-idx="${idx}" title="Open Note in Obsidian">🔗 Open</button>
-              <button class="sm-btn-j-action sm-btn-j-del" data-idx="${idx}" title="Delete article">🗑️</button>
-            </div>
-          </div>
-          <div class="sm-journal-summary">${log.summary}</div>
-          
-          <!-- Collapsible Full Reading Drawer -->
-          <div class="sm-journal-body-drawer" style="display: ${isExpanded ? 'block' : 'none'};">
-            <div class="sm-journal-body-text">${log.content.replace(/\n/g, '<br>')}</div>
-          </div>
-        </div>
-      `;
-    });
-    list.innerHTML = html;
+      const card = list.createEl('div', { cls: 'sm-journal-card' });
+      card.setAttribute('data-idx', idx);
 
-    // Bind Journal Action Events
-    list.querySelectorAll('.sm-journal-card').forEach((card, idx) => {
-      const log = logs[idx];
+      const header = card.createEl('div', { cls: 'sm-journal-header' });
+      const titleBox = header.createEl('div', { cls: 'sm-journal-title-box' });
+      titleBox.createEl('span', { cls: 'sm-journal-title', text: log.title });
+      titleBox.createEl('span', { cls: 'sm-journal-date', text: log.date });
 
-      // Preview / Expand
-      const previewBtn = card.querySelector('.sm-btn-j-preview');
-      if (previewBtn) {
-        previewBtn.addEventListener('click', () => {
-          if (this.expandedJournalPosts.has(log.file.path)) {
-            this.expandedJournalPosts.delete(log.file.path);
-          } else {
-            this.expandedJournalPosts.add(log.file.path);
-          }
-          this.renderJournalLogs(container);
-        });
+      const actions = header.createEl('div', { cls: 'sm-journal-card-actions' });
+      const previewBtn = actions.createEl('button', {
+        cls: 'sm-btn-j-action sm-btn-j-preview',
+        text: isExpanded ? '▲ Collapse' : '👁️ Read'
+      });
+      const editBtn = actions.createEl('button', { cls: 'sm-btn-j-action sm-btn-j-edit', text: '✏️ Edit' });
+      const openBtn = actions.createEl('button', { cls: 'sm-btn-j-action sm-btn-j-open', text: '🔗 Open' });
+      const delBtn = actions.createEl('button', { cls: 'sm-btn-j-action sm-btn-j-del', text: '🗑️' });
+
+      card.createEl('div', { cls: 'sm-journal-summary', text: log.summary });
+
+      const bodyDrawer = card.createEl('div', { cls: 'sm-journal-body-drawer' });
+      bodyDrawer.style.display = isExpanded ? 'block' : 'none';
+
+      const bodyTextContainer = bodyDrawer.createEl('div', { cls: 'sm-journal-body-text markdown-rendered' });
+
+      if (isExpanded) {
+        MarkdownRenderer.renderMarkdown(log.content, bodyTextContainer, log.file.path, this);
       }
 
-      // Edit
-      const editBtn = card.querySelector('.sm-btn-j-edit');
-      if (editBtn) {
-        editBtn.addEventListener('click', () => {
-          this.editingJournalFile = log.file;
-          const composerBox = container.querySelector('#sm-journal-composer-box');
-          container.querySelector('#sm-composer-heading').textContent = `✏️ EDITING: ${log.title}`;
-          container.querySelector('#sm-journal-save-btn').textContent = '✦ SAVE CHANGES TO VAULT';
-          container.querySelector('#sm-journal-title').value = log.title;
-          container.querySelector('#sm-journal-summary').value = log.summary;
-          container.querySelector('#sm-journal-content').value = log.content;
-          composerBox.style.display = 'flex';
-          composerBox.scrollIntoView({ behavior: 'smooth' });
-        });
-      }
+      // Event bindings
+      previewBtn.addEventListener('click', () => {
+        if (this.expandedJournalPosts.has(log.file.path)) {
+          this.expandedJournalPosts.delete(log.file.path);
+        } else {
+          this.expandedJournalPosts.add(log.file.path);
+        }
+        this.renderJournalLogs(container);
+      });
 
-      // Open Note in Native Obsidian Split
-      const openBtn = card.querySelector('.sm-btn-j-open');
-      if (openBtn) {
-        openBtn.addEventListener('click', () => {
-          this.plugin.app.workspace.openLinkText(log.file.path, '', false);
-        });
-      }
+      editBtn.addEventListener('click', () => {
+        this.editingJournalFile = log.file;
+        const composerBox = container.querySelector('#sm-journal-composer-box');
+        container.querySelector('#sm-composer-heading').textContent = `✏️ EDITING: ${log.title}`;
+        container.querySelector('#sm-journal-save-btn').textContent = '✦ SAVE CHANGES TO VAULT';
+        container.querySelector('#sm-journal-title').value = log.title;
+        container.querySelector('#sm-journal-summary').value = log.summary;
+        container.querySelector('#sm-journal-content').value = log.content;
+        composerBox.style.display = 'flex';
+        composerBox.scrollIntoView({ behavior: 'smooth' });
+      });
 
-      // Delete
-      const delBtn = card.querySelector('.sm-btn-j-del');
-      if (delBtn) {
-        delBtn.addEventListener('click', async () => {
-          if (confirm(`Are you sure you want to delete "${log.title}"?`)) {
-            await this.plugin.deleteJournalPostFromVault(log.file);
-            await this.renderJournalLogs(container);
-          }
-        });
-      }
+      openBtn.addEventListener('click', () => {
+        this.plugin.app.workspace.openLinkText(log.file.path, '', false);
+      });
+
+      delBtn.addEventListener('click', async () => {
+        if (confirm(`Are you sure you want to delete "${log.title}"?`)) {
+          await this.plugin.deleteJournalPostFromVault(log.file);
+          await this.renderJournalLogs(container);
+        }
+      });
     });
   }
 
@@ -1816,6 +1923,16 @@ class ScryingMirrorSettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.journalFolderPath)
         .onChange(async (value) => {
           this.plugin.settings.journalFolderPath = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('Attachments Folder')
+      .setDesc('Folder where pasted and uploaded images will be saved.')
+      .addText(text => text
+        .setValue(this.plugin.settings.attachmentsFolderPath)
+        .onChange(async (value) => {
+          this.plugin.settings.attachmentsFolderPath = value;
           await this.plugin.saveSettings();
         }));
 
