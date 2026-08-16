@@ -1,6 +1,6 @@
 /* ==========================================================================
-   SCRYING MIRROR — NATIVE OBSIDIAN PLUGIN STYLES
-   Adapts automatically to Obsidian themes & Dark / Light modes
+   SCRYING MIRROR — OBSIDIAN NATIVE PLUGIN STYLES
+   Full Feature Parity: Task Focus, Telemetry Dashboard, Full-Width Journal
    ========================================================================== */
 
 .scrying-mirror-obsidian-container {
@@ -24,6 +24,7 @@
   border: 1px solid var(--background-modifier-border);
   border-radius: 12px;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .sm-hud-left {
@@ -59,7 +60,7 @@
   color: var(--text-muted);
   font-family: var(--font-monospace);
   font-size: 0.72rem;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -95,7 +96,7 @@
   display: flex;
 }
 
-/* HERO WELCOME */
+/* 1. HERO VIEW */
 .sm-hero-center {
   margin: auto;
   text-align: center;
@@ -143,116 +144,161 @@
   color: var(--interactive-accent, #a78bfa);
 }
 
-/* PANEL HEADER */
-.sm-panel-header {
+/* 2. DIRECTIVES & TASK MATRIX */
+.sm-progress-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.sm-progress-labels {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-monospace);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.sm-progress-labels strong {
+  color: var(--text-normal);
+}
+
+.sm-progress-bar-bg {
+  height: 6px;
+  background: var(--background-modifier-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sm-progress-bar-fill {
+  height: 100%;
+  background: var(--interactive-accent, #a78bfa);
+  transition: width 0.3s ease;
+}
+
+.sm-todo-create-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sm-create-options-row {
+  display: flex;
+  gap: 8px;
+}
+
+.sm-filter-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-}
-
-.sm-panel-header h3 {
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.sm-tag {
-  font-family: var(--font-monospace);
-  font-size: 0.65rem;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  padding: 2px 8px;
-  border-radius: 4px;
-  color: var(--interactive-accent, #a78bfa);
-}
-
-/* INPUTS & BUTTONS */
-.sm-input {
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  color: var(--text-normal);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-family: var(--font-text);
-  font-size: 0.85rem;
-  flex: 1;
-}
-
-.sm-select {
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  color: var(--text-normal);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-family: var(--font-monospace);
-  font-size: 0.8rem;
-}
-
-.sm-btn-primary {
-  background: var(--interactive-accent, #a78bfa);
-  color: var(--text-on-accent, #000);
-  border: none;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-family: var(--font-monospace);
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
-}
-
-.sm-btn-primary:hover {
-  opacity: 0.85;
-}
-
-.sm-btn-sec {
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  color: var(--text-normal);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-family: var(--font-monospace);
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-/* TODO LIST */
-.sm-todo-input-row {
-  display: flex;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 12px;
+}
+
+.sm-status-filters, .sm-tag-filters {
+  display: flex;
+  gap: 6px;
+}
+
+.sm-filter-pill, .sm-tag-pill {
+  background: transparent;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sm-filter-pill.active, .sm-tag-pill.active {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent, #a78bfa);
+  color: var(--text-normal);
+}
+
+.sm-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+.sm-clear-btn:hover {
+  color: #f87171;
 }
 
 .sm-todo-list-box {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   overflow-y: auto;
+  flex: 1;
 }
 
-.sm-task-item {
+.sm-task-card {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
-  padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: all 0.2s ease;
 }
 
-.sm-task-item.completed .sm-task-title {
+.sm-task-card:hover {
+  border-color: var(--interactive-accent, #a78bfa);
+}
+
+.sm-task-card.completed {
+  opacity: 0.55;
+}
+
+.sm-task-card.completed .sm-task-title {
   text-decoration: line-through;
-  opacity: 0.5;
+}
+
+.sm-task-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .sm-task-title {
-  flex: 1;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.sm-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-monospace);
+  font-size: 0.68rem;
+}
+
+.sm-tag-cat {
+  background: var(--background-modifier-border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-muted);
 }
 
 .sm-task-prio {
-  font-family: var(--font-monospace);
-  font-size: 0.65rem;
   padding: 2px 6px;
   border-radius: 4px;
   border: 1px solid var(--background-modifier-border);
@@ -263,7 +309,69 @@
 .prio-medium { color: var(--interactive-accent, #a78bfa); border-color: var(--interactive-accent, #a78bfa); }
 .prio-low { color: var(--text-muted); }
 
-/* POMODORO DIAL */
+.sm-pomo-count {
+  color: var(--text-muted);
+}
+
+.sm-task-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sm-btn-focus-task {
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid var(--interactive-accent, #a78bfa);
+  color: var(--interactive-accent, #a78bfa);
+  font-family: var(--font-monospace);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sm-btn-focus-task:hover {
+  background: var(--interactive-accent, #a78bfa);
+  color: #000;
+}
+
+.sm-btn-del-task {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.sm-btn-del-task:hover {
+  color: #f87171;
+}
+
+/* 3. POMODORO CHRONO & FOCUS BANNER */
+.sm-focus-task-banner {
+  background: rgba(167, 139, 250, 0.15);
+  border: 1px solid var(--interactive-accent, #a78bfa);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-family: var(--font-monospace);
+  font-size: 0.76rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+}
+
+.sm-banner-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
 .sm-pomodoro-layout {
   display: flex;
   flex-direction: column;
@@ -296,8 +404,8 @@
 
 .sm-timer-dial-wrapper {
   position: relative;
-  width: 190px;
-  height: 190px;
+  width: 200px;
+  height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -348,7 +456,166 @@
   gap: 12px;
 }
 
-/* LECTURE GRID */
+.sm-presets-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-monospace);
+}
+
+.sm-duration-preset {
+  background: transparent;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sm-duration-preset:hover {
+  border-color: var(--interactive-accent, #a78bfa);
+  color: var(--text-normal);
+}
+
+/* 4. TELEMETRY STATS */
+.sm-stats-scale-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.sm-scale-tab {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sm-scale-tab.active {
+  border-color: var(--interactive-accent, #a78bfa);
+  color: var(--text-normal);
+}
+
+.sm-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.sm-metric-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+
+.sm-metric-val {
+  font-family: var(--font-monospace);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-normal);
+}
+
+.sm-metric-lbl {
+  font-family: var(--font-monospace);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+
+.sm-stats-panel {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.sm-stats-panel.active {
+  display: flex;
+}
+
+.sm-panel-sub-header {
+  font-family: var(--font-monospace);
+  font-size: 0.74rem;
+  color: var(--interactive-accent, #a78bfa);
+  margin-bottom: 12px;
+}
+
+.sm-timeline-grid {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 3px;
+  height: 60px;
+  background: var(--background-primary);
+  border-radius: 6px;
+  padding: 6px;
+  margin-bottom: 14px;
+}
+
+.sm-hour-cell {
+  background: var(--background-modifier-border);
+  border-radius: 3px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sm-hour-label {
+  font-family: var(--font-monospace);
+  font-size: 0.55rem;
+  color: var(--text-muted);
+}
+
+.sm-recorded-sessions-header {
+  font-family: var(--font-monospace);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.sm-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.sm-session-item {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-monospace);
+  font-size: 0.74rem;
+  padding: 6px 10px;
+  background: var(--background-primary);
+  border-radius: 6px;
+}
+
+.sm-year-grid {
+  display: grid;
+  grid-template-columns: repeat(52, 1fr);
+  grid-template-rows: repeat(7, 1fr);
+  gap: 2px;
+  height: 90px;
+}
+
+.sm-heat-cell {
+  background: var(--background-modifier-border);
+  border-radius: 2px;
+}
+
+/* 5. LECTURE HUB */
 .sm-lecture-grid {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
@@ -400,6 +667,117 @@
   resize: none;
   color: var(--text-normal);
   font-family: var(--font-monospace);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   line-height: 1.6;
+}
+
+/* 6. EXPANSIVE FULL-WIDTH JOURNAL STUDIO */
+.sm-journal-composer-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  width: 100%;
+  gap: 10px;
+}
+
+.sm-journal-list-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.sm-journal-card {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.sm-journal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.sm-journal-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.sm-journal-date {
+  font-family: var(--font-monospace);
+  font-size: 0.7rem;
+  color: var(--interactive-accent, #a78bfa);
+}
+
+.sm-journal-summary {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.sm-empty-msg {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 0.76rem;
+}
+
+/* GENERAL FORM CONTROLS */
+.sm-input {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: var(--font-text);
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+.sm-select {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: var(--font-monospace);
+  font-size: 0.78rem;
+}
+
+.sm-btn-primary {
+  background: var(--interactive-accent, #a78bfa);
+  color: var(--text-on-accent, #000);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: var(--font-monospace);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.sm-btn-primary:hover {
+  opacity: 0.85;
+}
+
+.sm-btn-sec {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: var(--font-monospace);
+  font-size: 0.75rem;
+  cursor: pointer;
 }
