@@ -1,0 +1,405 @@
+/* ==========================================================================
+   SCRYING MIRROR — NATIVE OBSIDIAN PLUGIN STYLES
+   Adapts automatically to Obsidian themes & Dark / Light modes
+   ========================================================================== */
+
+.scrying-mirror-obsidian-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: var(--font-text);
+  overflow: hidden;
+  padding: 12px;
+}
+
+/* TOP HUD */
+.sm-top-hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.sm-hud-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sm-brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--interactive-accent, #a78bfa);
+  box-shadow: 0 0 8px var(--interactive-accent, #a78bfa);
+}
+
+.sm-brand-title {
+  font-family: var(--font-monospace);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.sm-hud-nav {
+  display: flex;
+  gap: 6px;
+}
+
+.sm-nav-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sm-nav-btn:hover, .sm-nav-btn.active {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent, #a78bfa);
+  color: var(--text-normal);
+}
+
+/* MIRROR SURFACE */
+.sm-mirror-surface {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--background-primary-alt, rgba(0, 0, 0, 0.2));
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 16px;
+  padding: 16px;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* SUBVIEWS */
+.sm-subview {
+  display: none;
+  height: 100%;
+  flex-direction: column;
+}
+
+.sm-subview.active {
+  display: flex;
+}
+
+/* HERO WELCOME */
+.sm-hero-center {
+  margin: auto;
+  text-align: center;
+}
+
+.sm-prompt-sym {
+  font-family: var(--font-monospace);
+  font-size: 1.4rem;
+  color: var(--interactive-accent, #a78bfa);
+  margin-bottom: 8px;
+}
+
+.sm-title {
+  font-family: var(--font-monospace);
+  font-size: 2.2rem;
+  letter-spacing: 12px;
+  margin: 0 0 12px;
+  color: var(--text-normal);
+}
+
+.sm-subtitle {
+  font-family: var(--font-monospace);
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.sm-star-sym {
+  font-size: 1.2rem;
+  color: var(--interactive-accent, #a78bfa);
+  margin-bottom: 24px;
+}
+
+.sm-quick-stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  font-family: var(--font-monospace);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.sm-quick-stat strong {
+  color: var(--interactive-accent, #a78bfa);
+}
+
+/* PANEL HEADER */
+.sm-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.sm-panel-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.sm-tag {
+  font-family: var(--font-monospace);
+  font-size: 0.65rem;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--interactive-accent, #a78bfa);
+}
+
+/* INPUTS & BUTTONS */
+.sm-input {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: var(--font-text);
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+.sm-select {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: var(--font-monospace);
+  font-size: 0.8rem;
+}
+
+.sm-btn-primary {
+  background: var(--interactive-accent, #a78bfa);
+  color: var(--text-on-accent, #000);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: var(--font-monospace);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.sm-btn-primary:hover {
+  opacity: 0.85;
+}
+
+.sm-btn-sec {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: var(--font-monospace);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+/* TODO LIST */
+.sm-todo-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sm-todo-list-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.sm-task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.sm-task-item.completed .sm-task-title {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.sm-task-title {
+  flex: 1;
+  font-size: 0.85rem;
+}
+
+.sm-task-prio {
+  font-family: var(--font-monospace);
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.prio-critical { color: #f87171; border-color: #f87171; }
+.prio-high { color: #fbbf24; border-color: #fbbf24; }
+.prio-medium { color: var(--interactive-accent, #a78bfa); border-color: var(--interactive-accent, #a78bfa); }
+.prio-low { color: var(--text-muted); }
+
+/* POMODORO DIAL */
+.sm-pomodoro-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: auto;
+  gap: 14px;
+}
+
+.sm-timer-modes {
+  display: flex;
+  gap: 8px;
+}
+
+.sm-mode-pill {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 0.72rem;
+  padding: 4px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.sm-mode-pill.active {
+  border-color: var(--interactive-accent, #a78bfa);
+  color: var(--text-normal);
+}
+
+.sm-timer-dial-wrapper {
+  position: relative;
+  width: 190px;
+  height: 190px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sm-svg-dial {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.sm-bg-circle {
+  fill: none;
+  stroke: var(--background-modifier-border);
+  stroke-width: 8;
+}
+
+.sm-fill-circle {
+  fill: none;
+  stroke: var(--interactive-accent, #a78bfa);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 879.6;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.sm-timer-readout {
+  position: absolute;
+  text-align: center;
+}
+
+.sm-time-digits {
+  font-family: var(--font-monospace);
+  font-size: 2.6rem;
+  font-weight: 700;
+}
+
+.sm-time-status {
+  font-family: var(--font-monospace);
+  font-size: 0.65rem;
+  color: var(--interactive-accent, #a78bfa);
+  letter-spacing: 1.5px;
+}
+
+.sm-timer-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* LECTURE GRID */
+.sm-lecture-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 12px;
+  flex: 1;
+}
+
+.sm-video-embed-box {
+  width: 100%;
+  height: 230px;
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.sm-video-embed-box iframe {
+  width: 100%;
+  height: 100%;
+}
+
+.sm-video-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.sm-lecture-notes-side {
+  display: flex;
+  flex-direction: column;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.sm-notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-monospace);
+  font-size: 0.72rem;
+  margin-bottom: 8px;
+}
+
+.sm-notes-area {
+  flex: 1;
+  background: transparent;
+  border: none;
+  resize: none;
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
