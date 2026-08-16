@@ -1,17 +1,44 @@
 /* ==========================================================================
    SCRYING MIRROR — OBSIDIAN NATIVE PLUGIN STYLES
-   Robust Layout, Non-Shrinking Tasks, Unlimited Subtasks, Full Telemetry
+   Infinite Scrolling, Directives Matrix, Telemetry, Journal Studio (Edit/Del/Sort)
    ========================================================================== */
 
 .scrying-mirror-obsidian-container {
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
   background: var(--background-primary);
   color: var(--text-normal);
   font-family: var(--font-text);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px;
+}
+
+/* Custom Obsidian Scrollbars */
+.scrying-mirror-obsidian-container::-webkit-scrollbar,
+.sm-mirror-surface::-webkit-scrollbar,
+.sm-todo-list-box::-webkit-scrollbar,
+.sm-journal-list-grid::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrying-mirror-obsidian-container::-webkit-scrollbar-track,
+.sm-mirror-surface::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrying-mirror-obsidian-container::-webkit-scrollbar-thumb,
+.sm-mirror-surface::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+  border-radius: 3px;
+}
+
+.scrying-mirror-obsidian-container::-webkit-scrollbar-thumb:hover,
+.sm-mirror-surface::-webkit-scrollbar-thumb:hover {
+  background: var(--interactive-accent, #a78bfa);
 }
 
 /* TOP HUD */
@@ -52,6 +79,7 @@
 .sm-hud-nav {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .sm-nav-btn {
@@ -72,7 +100,7 @@
   color: var(--text-normal);
 }
 
-/* MIRROR SURFACE */
+/* MIRROR SURFACE - INFINITE SCROLLING CONTAINER */
 .sm-mirror-surface {
   flex: 1;
   display: flex;
@@ -82,7 +110,9 @@
   border-radius: 16px;
   padding: 16px;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
+  min-height: 0;
 }
 
 /* SUBVIEWS */
@@ -90,6 +120,8 @@
   display: none;
   width: 100%;
   flex-direction: column;
+  min-height: min-content;
+  overflow: visible;
 }
 
 .sm-subview.active {
@@ -145,7 +177,7 @@
   color: var(--interactive-accent, #a78bfa);
 }
 
-/* 2. DIRECTIVES & TASK MATRIX */
+/* 2. DIRECTIVES & TASK MATRIX - INFINITE SCROLL */
 .sm-progress-card {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
@@ -247,11 +279,14 @@
 .sm-todo-list-box {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
+  overflow: visible;
+  min-height: min-content;
+  padding-bottom: 24px;
 }
 
-/* ROBUST TASK WRAPPER (NO SHRINKING) */
+/* ZERO-SHRINK TASK WRAPPER */
 .sm-task-wrapper {
   display: flex;
   flex-direction: column;
@@ -259,9 +294,11 @@
   border: 1px solid var(--background-modifier-border);
   border-radius: 10px;
   overflow: hidden;
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
+  min-height: fit-content !important;
   width: 100%;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease;
 }
 
 .sm-task-wrapper:hover {
@@ -274,8 +311,9 @@
   gap: 12px;
   padding: 12px 16px;
   min-height: 52px;
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .sm-task-checkbox {
@@ -407,7 +445,8 @@
   border-top: 1px solid var(--background-modifier-border);
   padding: 10px 16px 12px 42px;
   gap: 8px;
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
+  min-height: fit-content;
 }
 
 .sm-subtasks-list {
@@ -420,9 +459,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 3px 0;
-  min-height: 26px;
-  flex-shrink: 0;
+  padding: 4px 0;
+  min-height: 28px;
+  flex-shrink: 0 !important;
 }
 
 .sm-subtask-checkbox {
@@ -476,7 +515,7 @@
 .sm-subtask-add-row {
   display: flex;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .sm-subtask-input {
@@ -492,7 +531,7 @@
   height: 30px !important;
 }
 
-/* 3. POMODORO CHRONO & FOCUS BANNER */
+/* 3. POMODORO CHRONO */
 .sm-focus-task-banner {
   background: rgba(167, 139, 250, 0.15);
   border: 1px solid var(--interactive-accent, #a78bfa);
@@ -622,7 +661,7 @@
   color: var(--text-normal);
 }
 
-/* 4. TELEMETRY STATS & OFFLINE STUDY LOGGER */
+/* 4. TELEMETRY STATS */
 .sm-manual-log-card {
   background: var(--background-secondary);
   border: 1px solid var(--interactive-accent, #a78bfa);
@@ -739,7 +778,7 @@
   margin-bottom: 12px;
 }
 
-/* DAY: 24h Timeline Bars */
+/* DAY */
 .sm-timeline-grid {
   display: flex;
   align-items: flex-end;
@@ -811,7 +850,7 @@
   border-radius: 6px;
 }
 
-/* WEEK: 7-Day Velocity Bars */
+/* WEEK */
 .sm-week-chart-grid {
   display: flex;
   justify-content: space-around;
@@ -869,7 +908,7 @@
   color: #a3e635;
 }
 
-/* MONTH: Calendar Matrix */
+/* MONTH */
 .sm-month-nav-row {
   display: flex;
   justify-content: space-between;
@@ -942,7 +981,7 @@
   color: #a3e635;
 }
 
-/* YEAR: 365-Day Heatmap */
+/* YEAR */
 .sm-heatmap-legend {
   display: flex;
   align-items: center;
@@ -1038,65 +1077,154 @@
   line-height: 1.6;
 }
 
-/* 6. EXPANSIVE FULL-WIDTH JOURNAL STUDIO */
+/* 6. EXPANSIVE JOURNAL STUDIO WITH EDIT, DELETE, PREVIEW, SORT */
+.sm-journal-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sm-journal-sort-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .sm-journal-composer-card {
   display: flex;
   flex-direction: column;
   background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
+  border: 1px solid var(--interactive-accent, #a78bfa);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
   width: 100%;
   gap: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.sm-composer-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
 }
 
 .sm-journal-list-grid {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow-y: auto;
-  flex: 1;
+  width: 100%;
+  padding-bottom: 24px;
 }
 
 .sm-journal-card {
+  display: flex;
+  flex-direction: column;
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 10px;
-  padding: 12px 16px;
+  padding: 14px 16px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.sm-journal-card:hover {
+  border-color: var(--interactive-accent, #a78bfa);
 }
 
 .sm-journal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  gap: 10px;
+}
+
+.sm-journal-title-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
 }
 
 .sm-journal-title {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-normal);
+  word-break: break-word;
 }
 
 .sm-journal-date {
   font-family: var(--font-monospace);
   font-size: 0.7rem;
   color: var(--interactive-accent, #a78bfa);
+  white-space: nowrap;
+}
+
+.sm-journal-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sm-btn-j-action {
+  background: transparent;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sm-btn-j-action:hover {
+  border-color: var(--interactive-accent, #a78bfa);
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.sm-btn-j-del:hover {
+  border-color: #f87171;
+  color: #f87171;
 }
 
 .sm-journal-summary {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
   line-height: 1.5;
 }
 
+.sm-journal-body-drawer {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 6px;
+}
+
+.sm-journal-body-text {
+  font-family: var(--font-text);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text-normal);
+}
+
 .sm-empty-msg {
   text-align: center;
-  padding: 24px;
+  padding: 30px;
   color: var(--text-muted);
   font-family: var(--font-monospace);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
 }
 
 /* GENERAL FORM CONTROLS */

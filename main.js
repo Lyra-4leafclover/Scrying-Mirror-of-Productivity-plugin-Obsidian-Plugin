@@ -122,7 +122,6 @@ class ScryingMirrorPlugin extends Plugin {
     let currentParent = null;
 
     lines.forEach((line, index) => {
-      // Subtask line (indented with 2+ spaces or tabs)
       const subMatch = line.match(/^(\s{2,}|\t+)-\s*\[([ xX])\]\s*(.*)$/);
       if (subMatch && currentParent) {
         const completed = subMatch[2].toLowerCase() === 'x';
@@ -136,7 +135,6 @@ class ScryingMirrorPlugin extends Plugin {
         return;
       }
 
-      // Parent task line (starts at beginning of line)
       const parentMatch = line.match(/^-\s*\[([ xX])\]\s*(.*)$/);
       if (parentMatch) {
         const completed = parentMatch[1].toLowerCase() === 'x';
@@ -206,10 +204,8 @@ class ScryingMirrorPlugin extends Plugin {
     let content = await this.app.vault.read(file);
     const lines = content.split('\n');
 
-    // Find the parent line
     const parentIdx = lines.findIndex(l => l.trim() === parentTask.rawLine.trim());
     if (parentIdx !== -1) {
-      // Find the position after the parent's existing subtasks
       let insertIdx = parentIdx + 1;
       while (insertIdx < lines.length && (lines[insertIdx].startsWith('  ') || lines[insertIdx].startsWith('\t'))) {
         insertIdx++;
@@ -285,7 +281,6 @@ class ScryingMirrorPlugin extends Plugin {
     let content = await this.app.vault.read(file);
     const lines = content.split('\n');
     
-    // Find parent and delete it and its subtasks
     const parentIdx = lines.findIndex(l => l.trim() === task.rawLine.trim());
     if (parentIdx !== -1) {
       let deleteCount = 1;
@@ -491,6 +486,51 @@ ${content}
     new Notice(`✓ Journal log saved to ${filePath}`);
   }
 
+  async updateJournalPostInVault(oldFile, title, summary, content) {
+    await this.ensureFolderExists(this.settings.journalFolderPath);
+    const safeTitle = (title || 'Journal Log').replace(/[/\\?%*:|"<>]/g, '-').trim();
+    const newPath = normalizePath(`${this.settings.journalFolderPath}/${safeTitle}.md`);
+    
+    const words = content.trim().split(/\s+/).length;
+    const readTime = `${Math.max(1, Math.round(words / 200))} MIN READ`;
+
+    const fileContent = `---
+title: "${title}"
+date: "${new Date().toLocaleDateString()}"
+readTime: "${readTime}"
+summary: "${summary}"
+tags: [scrying-mirror, journal]
+---
+
+# ${title}
+
+> *${summary}*  
+> **Date**: ${new Date().toLocaleDateString()} // **Length**: ${readTime}
+
+---
+
+${content}
+`;
+
+    if (oldFile && oldFile.path !== newPath) {
+      await this.app.vault.delete(oldFile);
+      await this.app.vault.create(newPath, fileContent);
+    } else if (oldFile instanceof TFile) {
+      await this.app.vault.modify(oldFile, fileContent);
+    } else {
+      await this.app.vault.create(newPath, fileContent);
+    }
+    new Notice(`✓ Updated journal log: ${title}`);
+  }
+
+  async deleteJournalPostFromVault(file) {
+    if (file instanceof TFile) {
+      const name = file.basename;
+      await this.app.vault.delete(file);
+      new Notice(`✓ Deleted journal log: ${name}`);
+    }
+  }
+
   async getJournalLogsFromVault() {
     await this.ensureFolderExists(this.settings.journalFolderPath);
     const folder = this.app.vault.getAbstractFileByPath(normalizePath(this.settings.journalFolderPath));
@@ -504,12 +544,16 @@ ${content}
         const summaryMatch = raw.match(/summary:\s*"(.*?)"/) || [null, 'Personal log reflection'];
         const dateMatch = raw.match(/date:\s*"(.*?)"/) || [null, ''];
         
+        // Extract raw body after frontmatter and main heading
+        const bodyContent = raw.replace(/^---[\s\S]*?---\s*/, '').replace(/^#\s+.*?\n/, '').replace(/^>\s+.*?\n/gm, '').replace(/^---\s*/gm, '').trim();
+
         logs.push({
           file: child,
           title: titleMatch[1] || child.basename,
           summary: summaryMatch[1],
-          date: dateMatch[1],
-          content: raw
+          date: dateMatch[1] || new Date(child.stat.mtime).toLocaleDateString(),
+          mtime: child.stat.mtime,
+          content: bodyContent || raw
         });
       }
     }
@@ -528,14 +572,17 @@ class ScryingMirrorView extends ItemView {
     this.timerRunning = false;
     this.activeFocusTask = null;
 
-    // Filters & Subtask Expand State
+    // Filters & States
     this.statusFilter = 'ALL';
     this.tagFilter = 'ALL';
     this.statsScale = 'day';
-    this.expandedTasks = new Set(); // Stores expanded task IDs
+    this.expandedTasks = new Set();
+    this.expandedJournalPosts = new Set();
+    this.editingJournalFile = null;
+    this.journalSort = 'NEWEST';
 
     this.selectedYear = new Date().getFullYear();
-    this.selectedMonth = new Date().getMonth() + 1; // 1-12
+    this.selectedMonth = new Date().getMonth() + 1;
   }
 
   getViewType() {
@@ -848,23 +895,41 @@ class ScryingMirrorView extends ItemView {
           </div>
         </div>
 
-        <!-- 6. VIEW: JOURNAL -->
+        <!-- 6. VIEW: JOURNAL STUDIO (EXPANDED WITH EDIT, DELETE, REORDER, PREVIEW) -->
         <div id="sm-view-journal" class="sm-subview">
           <div class="sm-panel-header">
             <h3>Liquid Writings Studio</h3>
-            <button id="sm-toggle-journal-composer" class="sm-btn-primary">+ WRITE NEW LOG</button>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button id="sm-toggle-journal-composer" class="sm-btn-primary">+ WRITE NEW LOG</button>
+            </div>
+          </div>
+
+          <div class="sm-journal-toolbar">
+            <div class="sm-journal-sort-group">
+              <span style="font-family: var(--font-monospace); font-size: 0.7rem; color: var(--text-muted);">SORT BY:</span>
+              <button class="sm-filter-pill active" data-jsort="NEWEST">📅 Newest</button>
+              <button class="sm-filter-pill" data-jsort="OLDEST">⌛ Oldest</button>
+              <button class="sm-filter-pill" data-jsort="ALPHA">🔤 Title A-Z</button>
+            </div>
+            <span id="sm-journal-count" style="font-family: var(--font-monospace); font-size: 0.72rem; color: var(--text-muted);">0 Articles</span>
           </div>
           
-          <div id="sm-journal-composer-box" class="sm-journal-composer-card">
-            <input type="text" id="sm-journal-title" class="sm-input" placeholder="Article / Log Title...">
+          <!-- Journal Composer (for New Post or Editing) -->
+          <div id="sm-journal-composer-box" class="sm-journal-composer-card" style="display: none;">
+            <div class="sm-composer-title-row">
+              <span id="sm-composer-heading" style="font-family: var(--font-monospace); font-size: 0.76rem; font-weight: 600; color: var(--interactive-accent, #a78bfa);">✦ WRITE NEW ARTICLE</span>
+              <button id="sm-composer-close-x" class="sm-btn-del-task">&times;</button>
+            </div>
+            <input type="text" id="sm-journal-title" class="sm-input" placeholder="Article / Log Title (e.g. Day 1: Architecture Breakdown)...">
             <input type="text" id="sm-journal-summary" class="sm-input" placeholder="Short reflection summary...">
-            <textarea id="sm-journal-content" class="sm-notes-area" style="height: 220px; margin: 10px 0;" placeholder="Write your markdown log here... Saves as a markdown note in ScryingMirror/Journal/"></textarea>
+            <textarea id="sm-journal-content" class="sm-notes-area" style="height: 220px; margin: 6px 0;" placeholder="Write your markdown log here... Supports full Markdown headings, bullet points, checklists, and code snippets!"></textarea>
             <div style="display: flex; justify-content: flex-end; gap: 8px;">
               <button id="sm-journal-cancel-btn" class="sm-btn-sec">CANCEL</button>
               <button id="sm-journal-save-btn" class="sm-btn-primary">✦ PUBLISH LOG TO VAULT</button>
             </div>
           </div>
 
+          <!-- Journal List Grid -->
           <div id="sm-journal-list" class="sm-journal-list-grid"></div>
         </div>
 
@@ -920,19 +985,26 @@ class ScryingMirrorView extends ItemView {
 
     container.querySelectorAll('.sm-filter-pill').forEach(pill => {
       pill.addEventListener('click', (e) => {
-        container.querySelectorAll('.sm-filter-pill').forEach(p => p.removeClass('active'));
-        e.currentTarget.addClass('active');
-        this.statusFilter = e.currentTarget.getAttribute('data-status');
-        this.renderTasks(container);
-      });
-    });
+        const status = e.currentTarget.getAttribute('data-status');
+        const tag = e.currentTarget.getAttribute('data-tag');
+        const jsort = e.currentTarget.getAttribute('data-jsort');
 
-    container.querySelectorAll('.sm-tag-pill').forEach(pill => {
-      pill.addEventListener('click', (e) => {
-        container.querySelectorAll('.sm-tag-pill').forEach(p => p.removeClass('active'));
-        e.currentTarget.addClass('active');
-        this.tagFilter = e.currentTarget.getAttribute('data-tag');
-        this.renderTasks(container);
+        if (status) {
+          container.querySelectorAll('.sm-status-filters .sm-filter-pill').forEach(p => p.removeClass('active'));
+          e.currentTarget.addClass('active');
+          this.statusFilter = status;
+          this.renderTasks(container);
+        } else if (tag) {
+          container.querySelectorAll('.sm-tag-filters .sm-tag-pill').forEach(p => p.removeClass('active'));
+          e.currentTarget.addClass('active');
+          this.tagFilter = tag;
+          this.renderTasks(container);
+        } else if (jsort) {
+          container.querySelectorAll('.sm-journal-sort-group .sm-filter-pill').forEach(p => p.removeClass('active'));
+          e.currentTarget.addClass('active');
+          this.journalSort = jsort;
+          this.renderJournalLogs(container);
+        }
       });
     });
 
@@ -1109,7 +1181,21 @@ class ScryingMirrorView extends ItemView {
     const composerBox = container.querySelector('#sm-journal-composer-box');
     if (toggleComposer && composerBox) {
       toggleComposer.addEventListener('click', () => {
-        composerBox.style.display = composerBox.style.display === 'none' ? 'block' : 'none';
+        this.editingJournalFile = null;
+        container.querySelector('#sm-composer-heading').textContent = '✦ WRITE NEW ARTICLE';
+        container.querySelector('#sm-journal-save-btn').textContent = '✦ PUBLISH LOG TO VAULT';
+        container.querySelector('#sm-journal-title').value = '';
+        container.querySelector('#sm-journal-summary').value = '';
+        container.querySelector('#sm-journal-content').value = '';
+        composerBox.style.display = composerBox.style.display === 'none' ? 'flex' : 'none';
+      });
+    }
+
+    const closeComposerX = container.querySelector('#sm-composer-close-x');
+    if (closeComposerX && composerBox) {
+      closeComposerX.addEventListener('click', () => {
+        composerBox.style.display = 'none';
+        this.editingJournalFile = null;
       });
     }
 
@@ -1117,6 +1203,7 @@ class ScryingMirrorView extends ItemView {
     if (cancelComposer && composerBox) {
       cancelComposer.addEventListener('click', () => {
         composerBox.style.display = 'none';
+        this.editingJournalFile = null;
       });
     }
 
@@ -1127,12 +1214,19 @@ class ScryingMirrorView extends ItemView {
         const summary = container.querySelector('#sm-journal-summary').value.trim();
         const content = container.querySelector('#sm-journal-content').value.trim();
         if (title && content) {
-          await this.plugin.saveJournalPostToVault(title, summary, '3 MIN READ', content);
+          if (this.editingJournalFile) {
+            await this.plugin.updateJournalPostInVault(this.editingJournalFile, title, summary, content);
+          } else {
+            await this.plugin.saveJournalPostToVault(title, summary, '3 MIN READ', content);
+          }
           container.querySelector('#sm-journal-title').value = '';
           container.querySelector('#sm-journal-summary').value = '';
           container.querySelector('#sm-journal-content').value = '';
           composerBox.style.display = 'none';
+          this.editingJournalFile = null;
           await this.renderJournalLogs(container);
+        } else {
+          new Notice('Please provide both a Title and Content for your journal post.');
         }
       });
     }
@@ -1195,7 +1289,6 @@ class ScryingMirrorView extends ItemView {
             </div>
           </div>
 
-          <!-- Collapsible Unlimited Subtasks Drawer -->
           <div class="sm-subtasks-drawer" style="display: ${isExpanded ? 'flex' : 'none'};">
             <div class="sm-subtasks-list">
               ${t.subtasks.map((s, sIdx) => `
@@ -1217,11 +1310,9 @@ class ScryingMirrorView extends ItemView {
     });
     list.innerHTML = html;
 
-    // Bind Task & Subtask Events
     list.querySelectorAll('.sm-task-wrapper').forEach((wrapper, idx) => {
       const task = filtered[idx];
 
-      // Parent Task Checkbox
       const cb = wrapper.querySelector('.sm-task-checkbox');
       cb.addEventListener('change', async () => {
         await this.plugin.toggleTaskInVault(task);
@@ -1229,7 +1320,6 @@ class ScryingMirrorView extends ItemView {
         this.renderTelemetry(container);
       });
 
-      // Expand / Collapse Subtasks
       const expandBtn = wrapper.querySelector('.sm-btn-expand-subtasks');
       if (expandBtn) {
         expandBtn.addEventListener('click', () => {
@@ -1242,7 +1332,6 @@ class ScryingMirrorView extends ItemView {
         });
       }
 
-      // Add Subtask on Enter or Button Click
       const subInput = wrapper.querySelector('.sm-subtask-input');
       const subAddBtn = wrapper.querySelector('.sm-subtask-add-btn');
 
@@ -1261,7 +1350,6 @@ class ScryingMirrorView extends ItemView {
         });
       }
 
-      // Subtask Item Events (Toggle, Focus, Delete)
       wrapper.querySelectorAll('.sm-subtask-item').forEach((sItem, sIdx) => {
         const subtask = task.subtasks[sIdx];
 
@@ -1293,7 +1381,6 @@ class ScryingMirrorView extends ItemView {
         }
       });
 
-      // Parent Task Focus Button
       const focusBtn = wrapper.querySelector('.sm-btn-focus-task');
       if (focusBtn) {
         focusBtn.addEventListener('click', () => {
@@ -1305,7 +1392,6 @@ class ScryingMirrorView extends ItemView {
         });
       }
 
-      // Parent Task Delete Button
       const delBtn = wrapper.querySelector('.sm-btn-del-task');
       if (delBtn) {
         delBtn.addEventListener('click', async () => {
@@ -1577,30 +1663,112 @@ class ScryingMirrorView extends ItemView {
     yearGrid.innerHTML = html;
   }
 
-  // --- JOURNAL LOGS RENDERER ---
+  // --- JOURNAL LOGS RENDERER WITH EDIT, DELETE, PREVIEW & REORDER ---
   async renderJournalLogs(container) {
     const list = container.querySelector('#sm-journal-list');
     if (!list) return;
 
-    const logs = await this.plugin.getJournalLogsFromVault();
+    let logs = await this.plugin.getJournalLogsFromVault();
+    const countLabel = container.querySelector('#sm-journal-count');
+    if (countLabel) countLabel.textContent = `${logs.length} ${logs.length === 1 ? 'Article' : 'Articles'}`;
+
     if (logs.length === 0) {
       list.innerHTML = `<div class="sm-empty-msg">No journal articles saved in vault yet. Click "+ WRITE NEW LOG" to publish your first entry!</div>`;
       return;
     }
 
+    // Sort logs
+    if (this.journalSort === 'NEWEST') {
+      logs.sort((a, b) => b.mtime - a.mtime);
+    } else if (this.journalSort === 'OLDEST') {
+      logs.sort((a, b) => a.mtime - b.mtime);
+    } else if (this.journalSort === 'ALPHA') {
+      logs.sort((a, b) => a.title.localeCompare(b.title));
+    }
+
     let html = '';
     logs.forEach((log, idx) => {
+      const isExpanded = this.expandedJournalPosts.has(log.file.path);
+
       html += `
         <div class="sm-journal-card" data-idx="${idx}">
           <div class="sm-journal-header">
-            <span class="sm-journal-title">${log.title}</span>
-            <span class="sm-journal-date">${log.date}</span>
+            <div class="sm-journal-title-box">
+              <span class="sm-journal-title">${log.title}</span>
+              <span class="sm-journal-date">${log.date}</span>
+            </div>
+            <div class="sm-journal-card-actions">
+              <button class="sm-btn-j-action sm-btn-j-preview" data-idx="${idx}" title="Preview / Read">
+                ${isExpanded ? '▲ Collapse' : '👁️ Read'}
+              </button>
+              <button class="sm-btn-j-action sm-btn-j-edit" data-idx="${idx}" title="Edit in Studio">✏️ Edit</button>
+              <button class="sm-btn-j-action sm-btn-j-open" data-idx="${idx}" title="Open Note in Obsidian">🔗 Open</button>
+              <button class="sm-btn-j-action sm-btn-j-del" data-idx="${idx}" title="Delete article">🗑️</button>
+            </div>
           </div>
           <div class="sm-journal-summary">${log.summary}</div>
+          
+          <!-- Collapsible Full Reading Drawer -->
+          <div class="sm-journal-body-drawer" style="display: ${isExpanded ? 'block' : 'none'};">
+            <div class="sm-journal-body-text">${log.content.replace(/\n/g, '<br>')}</div>
+          </div>
         </div>
       `;
     });
     list.innerHTML = html;
+
+    // Bind Journal Action Events
+    list.querySelectorAll('.sm-journal-card').forEach((card, idx) => {
+      const log = logs[idx];
+
+      // Preview / Expand
+      const previewBtn = card.querySelector('.sm-btn-j-preview');
+      if (previewBtn) {
+        previewBtn.addEventListener('click', () => {
+          if (this.expandedJournalPosts.has(log.file.path)) {
+            this.expandedJournalPosts.delete(log.file.path);
+          } else {
+            this.expandedJournalPosts.add(log.file.path);
+          }
+          this.renderJournalLogs(container);
+        });
+      }
+
+      // Edit
+      const editBtn = card.querySelector('.sm-btn-j-edit');
+      if (editBtn) {
+        editBtn.addEventListener('click', () => {
+          this.editingJournalFile = log.file;
+          const composerBox = container.querySelector('#sm-journal-composer-box');
+          container.querySelector('#sm-composer-heading').textContent = `✏️ EDITING: ${log.title}`;
+          container.querySelector('#sm-journal-save-btn').textContent = '✦ SAVE CHANGES TO VAULT';
+          container.querySelector('#sm-journal-title').value = log.title;
+          container.querySelector('#sm-journal-summary').value = log.summary;
+          container.querySelector('#sm-journal-content').value = log.content;
+          composerBox.style.display = 'flex';
+          composerBox.scrollIntoView({ behavior: 'smooth' });
+        });
+      }
+
+      // Open Note in Native Obsidian Split
+      const openBtn = card.querySelector('.sm-btn-j-open');
+      if (openBtn) {
+        openBtn.addEventListener('click', () => {
+          this.plugin.app.workspace.openLinkText(log.file.path, '', false);
+        });
+      }
+
+      // Delete
+      const delBtn = card.querySelector('.sm-btn-j-del');
+      if (delBtn) {
+        delBtn.addEventListener('click', async () => {
+          if (confirm(`Are you sure you want to delete "${log.title}"?`)) {
+            await this.plugin.deleteJournalPostFromVault(log.file);
+            await this.renderJournalLogs(container);
+          }
+        });
+      }
+    });
   }
 
   async onClose() {
