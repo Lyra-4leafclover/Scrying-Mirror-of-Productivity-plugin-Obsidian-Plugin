@@ -1,6 +1,6 @@
 /* ==========================================================================
    SCRYING MIRROR — OBSIDIAN NATIVE PLUGIN STYLES
-   Full Real-Data Telemetry Charts + Offline Study Logger
+   Full Real-Data Telemetry + Unlimited Subtasks + Offline Study Logger
    ========================================================================== */
 
 .scrying-mirror-obsidian-container {
@@ -144,7 +144,7 @@
   color: var(--interactive-accent, #a78bfa);
 }
 
-/* 2. DIRECTIVES & TASK MATRIX */
+/* 2. DIRECTIVES & TASK MATRIX WITH UNLIMITED SUBTASKS */
 .sm-progress-card {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
@@ -243,24 +243,31 @@
 .sm-todo-list-box {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   overflow-y: auto;
   flex: 1;
+}
+
+/* TASK WRAPPER & CARD */
+.sm-task-wrapper {
+  display: flex;
+  flex-direction: column;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.sm-task-wrapper:hover {
+  border-color: var(--interactive-accent, #a78bfa);
 }
 
 .sm-task-card {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 10px;
   padding: 10px 14px;
-  transition: all 0.2s ease;
-}
-
-.sm-task-card:hover {
-  border-color: var(--interactive-accent, #a78bfa);
 }
 
 .sm-task-card.completed {
@@ -289,6 +296,7 @@
   gap: 8px;
   font-family: var(--font-monospace);
   font-size: 0.68rem;
+  flex-wrap: wrap;
 }
 
 .sm-tag-cat {
@@ -311,6 +319,22 @@
 
 .sm-pomo-count {
   color: var(--text-muted);
+}
+
+.sm-btn-expand-subtasks {
+  background: transparent;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--interactive-accent, #a78bfa);
+  font-family: var(--font-monospace);
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sm-btn-expand-subtasks:hover {
+  background: var(--background-modifier-hover);
 }
 
 .sm-task-actions {
@@ -348,6 +372,83 @@
 
 .sm-btn-del-task:hover {
   color: #f87171;
+}
+
+/* UNLIMITED SUBTASKS DRAWER */
+.sm-subtasks-drawer {
+  display: flex;
+  flex-direction: column;
+  background: var(--background-primary);
+  border-top: 1px solid var(--background-modifier-border);
+  padding: 8px 14px 10px 36px;
+  gap: 6px;
+}
+
+.sm-subtasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sm-subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.sm-subtask-item.completed .sm-subtask-title {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.sm-subtask-title {
+  flex: 1;
+  font-size: 0.8rem;
+}
+
+.sm-btn-focus-subtask {
+  background: transparent;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--interactive-accent, #a78bfa);
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sm-btn-focus-subtask:hover {
+  background: var(--interactive-accent, #a78bfa);
+  color: #000;
+}
+
+.sm-btn-del-subtask {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.sm-btn-del-subtask:hover {
+  color: #f87171;
+}
+
+.sm-subtask-add-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.sm-subtask-input {
+  font-size: 0.76rem !important;
+  padding: 4px 8px !important;
+  height: 26px !important;
+}
+
+.sm-subtask-add-btn {
+  padding: 2px 8px !important;
+  font-size: 0.75rem !important;
 }
 
 /* 3. POMODORO CHRONO & FOCUS BANNER */

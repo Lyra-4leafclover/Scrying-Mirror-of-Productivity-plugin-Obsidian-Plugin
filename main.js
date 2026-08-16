@@ -110,7 +110,7 @@ class ScryingMirrorPlugin extends Plugin {
     }
   }
 
-  // --- TASK MATRIX VAULT API ---
+  // --- TASK & UNLIMITED SUBTASK VAULT API ---
   async getTasksFromVault() {
     const path = normalizePath(this.settings.tasksFilePath);
     const file = this.app.vault.getAbstractFileByPath(path);
@@ -119,12 +119,28 @@ class ScryingMirrorPlugin extends Plugin {
     const content = await this.app.vault.read(file);
     const lines = content.split('\n');
     const tasks = [];
+    let currentParent = null;
 
     lines.forEach((line, index) => {
-      const match = line.match(/^-\s*\[([ xX])\]\s*(.*)$/);
-      if (match) {
-        const completed = match[1].toLowerCase() === 'x';
-        let rawText = match[2];
+      // Subtask line (indented with 2+ spaces or tabs)
+      const subMatch = line.match(/^(\s{2,}|\t+)-\s*\[([ xX])\]\s*(.*)$/);
+      if (subMatch && currentParent) {
+        const completed = subMatch[2].toLowerCase() === 'x';
+        const cleanSub = subMatch[3].replace(/\(Created:.*?\)/g, '').trim();
+        currentParent.subtasks.push({
+          id: 'sub_' + index,
+          title: cleanSub,
+          completed,
+          rawLine: line
+        });
+        return;
+      }
+
+      // Parent task line (starts at beginning of line)
+      const parentMatch = line.match(/^-\s*\[([ xX])\]\s*(.*)$/);
+      if (parentMatch) {
+        const completed = parentMatch[1].toLowerCase() === 'x';
+        let rawText = parentMatch[2];
         
         let priority = 'MEDIUM';
         if (rawText.toLowerCase().includes('#critical')) priority = 'CRITICAL';
@@ -150,7 +166,7 @@ class ScryingMirrorPlugin extends Plugin {
           .replace(/\(Created:.*?\)/g, '')
           .trim();
 
-        tasks.push({
+        currentParent = {
           id: 'task_' + index,
           title: cleanTitle,
           completed,
@@ -158,8 +174,10 @@ class ScryingMirrorPlugin extends Plugin {
           category,
           pomodorosDone,
           pomodorosTarget,
-          rawLine: line
-        });
+          rawLine: line,
+          subtasks: []
+        };
+        tasks.push(currentParent);
       }
     });
 
@@ -178,6 +196,51 @@ class ScryingMirrorPlugin extends Plugin {
     } else if (file instanceof TFile) {
       await this.app.vault.append(file, taskLine);
     }
+  }
+
+  async saveSubtaskToVault(parentTask, subtaskTitle) {
+    const path = normalizePath(this.settings.tasksFilePath);
+    let file = this.app.vault.getAbstractFileByPath(path);
+    if (!file || !(file instanceof TFile)) return;
+
+    let content = await this.app.vault.read(file);
+    const lines = content.split('\n');
+
+    // Find the parent line
+    const parentIdx = lines.findIndex(l => l.trim() === parentTask.rawLine.trim());
+    if (parentIdx !== -1) {
+      // Find the position after the parent's existing subtasks
+      let insertIdx = parentIdx + 1;
+      while (insertIdx < lines.length && (lines[insertIdx].startsWith('  ') || lines[insertIdx].startsWith('\t'))) {
+        insertIdx++;
+      }
+      lines.splice(insertIdx, 0, `    - [ ] ${subtaskTitle}`);
+      await this.app.vault.modify(file, lines.join('\n'));
+    }
+  }
+
+  async toggleSubtaskInVault(subtask) {
+    const path = normalizePath(this.settings.tasksFilePath);
+    let file = this.app.vault.getAbstractFileByPath(path);
+    if (!file || !(file instanceof TFile)) return;
+
+    let content = await this.app.vault.read(file);
+    if (subtask.completed) {
+      content = content.replace(subtask.rawLine, subtask.rawLine.replace(/-\s*\[x\]/i, '- [ ]'));
+    } else {
+      content = content.replace(subtask.rawLine, subtask.rawLine.replace(/-\s*\[ \]/i, '- [x]'));
+    }
+    await this.app.vault.modify(file, content);
+  }
+
+  async deleteSubtaskInVault(subtask) {
+    const path = normalizePath(this.settings.tasksFilePath);
+    let file = this.app.vault.getAbstractFileByPath(path);
+    if (!file || !(file instanceof TFile)) return;
+
+    let content = await this.app.vault.read(file);
+    content = content.replace(subtask.rawLine + '\n', '').replace(subtask.rawLine, '');
+    await this.app.vault.modify(file, content);
   }
 
   async toggleTaskInVault(task) {
@@ -220,8 +283,18 @@ class ScryingMirrorPlugin extends Plugin {
     if (!file || !(file instanceof TFile)) return;
 
     let content = await this.app.vault.read(file);
-    content = content.replace(task.rawLine + '\n', '').replace(task.rawLine, '');
-    await this.app.vault.modify(file, content);
+    const lines = content.split('\n');
+    
+    // Find parent and delete it and its subtasks
+    const parentIdx = lines.findIndex(l => l.trim() === task.rawLine.trim());
+    if (parentIdx !== -1) {
+      let deleteCount = 1;
+      while (parentIdx + deleteCount < lines.length && (lines[parentIdx + deleteCount].startsWith('  ') || lines[parentIdx + deleteCount].startsWith('\t'))) {
+        deleteCount++;
+      }
+      lines.splice(parentIdx, deleteCount);
+      await this.app.vault.modify(file, lines.join('\n'));
+    }
   }
 
   async clearCompletedTasksInVault() {
@@ -231,7 +304,25 @@ class ScryingMirrorPlugin extends Plugin {
 
     let content = await this.app.vault.read(file);
     const lines = content.split('\n');
-    const filtered = lines.filter(line => !line.match(/^-\s*\[[xX]\]/));
+    const filtered = [];
+    let skippingSubtasks = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.match(/^-\s*\[[xX]\]/)) {
+        skippingSubtasks = true;
+        continue;
+      } else if (line.match(/^-\s*\[ \]/)) {
+        skippingSubtasks = false;
+        filtered.push(line);
+      } else if (skippingSubtasks && (line.startsWith('  ') || line.startsWith('\t'))) {
+        continue;
+      } else {
+        skippingSubtasks = false;
+        filtered.push(line);
+      }
+    }
+
     await this.app.vault.modify(file, filtered.join('\n'));
   }
 
@@ -242,7 +333,7 @@ class ScryingMirrorPlugin extends Plugin {
       try { return JSON.parse(raw); } catch (e) {}
     }
     return {
-      history: {}, // 'YYYY-MM-DD': { focusMins: 0, tasksDone: 0, hourly: Array(24).fill(0), sessions: [] }
+      history: {},
       totalFocusMins: 0,
       totalTasksCrushed: 0,
       activeStreak: 0,
@@ -276,7 +367,6 @@ class ScryingMirrorPlugin extends Plugin {
     localStorage.setItem('sm_vault_telemetry', JSON.stringify(data));
   }
 
-  // --- MANUAL OFFLINE STUDY LOGGER ---
   async recordTelemetryManualSession(dateStr, durationMins, subject = 'Offline Study', category = 'Study') {
     const data = await this.getTelemetryData();
     const targetDate = dateStr || new Date().toISOString().split('T')[0];
@@ -438,10 +528,11 @@ class ScryingMirrorView extends ItemView {
     this.timerRunning = false;
     this.activeFocusTask = null;
 
-    // Filters & Navigation
+    // Filters & Subtask Expand State
     this.statusFilter = 'ALL';
     this.tagFilter = 'ALL';
     this.statsScale = 'day';
+    this.expandedTasks = new Set(); // Stores expanded task IDs
 
     this.selectedYear = new Date().getFullYear();
     this.selectedMonth = new Date().getMonth() + 1; // 1-12
@@ -598,7 +689,6 @@ class ScryingMirrorView extends ItemView {
               <button class="sm-duration-preset" data-mins="90">90m (Ultra)</button>
             </div>
 
-            <!-- Quick Offline Logger Link -->
             <button id="sm-pomodoro-offline-btn" class="sm-btn-sec" style="font-size: 0.72rem; margin-top: 6px; border-style: dashed;">
               ⏱️ Forgot to turn on timer? Log offline study hours
             </button>
@@ -895,7 +985,6 @@ class ScryingMirrorView extends ItemView {
       });
     }
 
-    // Quick offline logger button in Pomodoro
     const pomoOfflineBtn = container.querySelector('#sm-pomodoro-offline-btn');
     if (pomoOfflineBtn) {
       pomoOfflineBtn.addEventListener('click', () => {
@@ -968,7 +1057,6 @@ class ScryingMirrorView extends ItemView {
       });
     });
 
-    // Month Navigation
     const monthPrev = container.querySelector('#sm-month-prev');
     if (monthPrev) {
       monthPrev.addEventListener('click', () => {
@@ -1050,7 +1138,7 @@ class ScryingMirrorView extends ItemView {
     }
   }
 
-  // --- RENDER TASK MATRIX WITH [⚡ FOCUS] BUTTON ---
+  // --- RENDER TASK MATRIX WITH UNLIMITED SUBTASKS & [⚡ FOCUS] ---
   async renderTasks(container) {
     const list = container.querySelector('#sm-todo-list');
     if (!list) return;
@@ -1081,37 +1169,132 @@ class ScryingMirrorView extends ItemView {
 
     let html = '';
     filtered.forEach((t, i) => {
+      const isExpanded = this.expandedTasks.has(t.id);
+      const subCompleted = t.subtasks.filter(s => s.completed).length;
+      const subTotal = t.subtasks.length;
+      const subBadgeText = subTotal > 0 ? `(${subCompleted}/${subTotal})` : '+ subtasks';
+
       html += `
-        <div class="sm-task-card ${t.completed ? 'completed' : ''}" data-idx="${i}">
-          <input type="checkbox" ${t.completed ? 'checked' : ''} class="sm-task-checkbox">
-          <div class="sm-task-main">
-            <div class="sm-task-title">${t.title}</div>
-            <div class="sm-task-meta">
-              <span class="sm-tag-cat">${t.category}</span>
-              <span class="sm-task-prio prio-${t.priority.toLowerCase()}">${t.priority}</span>
-              <span class="sm-pomo-count">🍅 ${t.pomodorosDone}/${t.pomodorosTarget} focus</span>
+        <div class="sm-task-wrapper" data-task-id="${t.id}">
+          <div class="sm-task-card ${t.completed ? 'completed' : ''}">
+            <input type="checkbox" ${t.completed ? 'checked' : ''} class="sm-task-checkbox">
+            <div class="sm-task-main">
+              <div class="sm-task-title">${t.title}</div>
+              <div class="sm-task-meta">
+                <span class="sm-tag-cat">${t.category}</span>
+                <span class="sm-task-prio prio-${t.priority.toLowerCase()}">${t.priority}</span>
+                <span class="sm-pomo-count">🍅 ${t.pomodorosDone}/${t.pomodorosTarget} focus</span>
+                <button class="sm-btn-expand-subtasks" data-task-id="${t.id}">
+                  ${isExpanded ? '▲' : '▼'} ${subBadgeText}
+                </button>
+              </div>
+            </div>
+            <div class="sm-task-actions">
+              ${!t.completed ? `<button class="sm-btn-focus-task" data-title="${t.title}" title="Focus on this task">⚡ FOCUS</button>` : ''}
+              <button class="sm-btn-del-task" title="Delete task">&times;</button>
             </div>
           </div>
-          <div class="sm-task-actions">
-            ${!t.completed ? `<button class="sm-btn-focus-task" data-title="${t.title}" title="Focus on this task">⚡ FOCUS</button>` : ''}
-            <button class="sm-btn-del-task" data-title="${t.title}" title="Delete task">&times;</button>
+
+          <!-- Collapsible Unlimited Subtasks Drawer -->
+          <div class="sm-subtasks-drawer" style="display: ${isExpanded ? 'flex' : 'none'};">
+            <div class="sm-subtasks-list">
+              ${t.subtasks.map((s, sIdx) => `
+                <div class="sm-subtask-item ${s.completed ? 'completed' : ''}" data-sub-idx="${sIdx}">
+                  <input type="checkbox" ${s.completed ? 'checked' : ''} class="sm-subtask-checkbox">
+                  <span class="sm-subtask-title">${s.title}</span>
+                  <button class="sm-btn-focus-subtask" data-title="${t.title} ➔ ${s.title}" title="Focus on subtask">⚡</button>
+                  <button class="sm-btn-del-subtask" title="Delete subtask">&times;</button>
+                </div>
+              `).join('')}
+            </div>
+            <div class="sm-subtask-add-row">
+              <input type="text" class="sm-subtask-input sm-input" placeholder="+ Add subtask... (press Enter)">
+              <button class="sm-subtask-add-btn sm-btn-primary">+</button>
+            </div>
           </div>
         </div>
       `;
     });
     list.innerHTML = html;
 
-    list.querySelectorAll('.sm-task-card').forEach((card, idx) => {
+    // Bind Task & Subtask Events
+    list.querySelectorAll('.sm-task-wrapper').forEach((wrapper, idx) => {
       const task = filtered[idx];
 
-      const cb = card.querySelector('.sm-task-checkbox');
+      // Parent Task Checkbox
+      const cb = wrapper.querySelector('.sm-task-checkbox');
       cb.addEventListener('change', async () => {
         await this.plugin.toggleTaskInVault(task);
         await this.renderTasks(container);
         this.renderTelemetry(container);
       });
 
-      const focusBtn = card.querySelector('.sm-btn-focus-task');
+      // Expand / Collapse Subtasks
+      const expandBtn = wrapper.querySelector('.sm-btn-expand-subtasks');
+      if (expandBtn) {
+        expandBtn.addEventListener('click', () => {
+          if (this.expandedTasks.has(task.id)) {
+            this.expandedTasks.delete(task.id);
+          } else {
+            this.expandedTasks.add(task.id);
+          }
+          this.renderTasks(container);
+        });
+      }
+
+      // Add Subtask on Enter or Button Click
+      const subInput = wrapper.querySelector('.sm-subtask-input');
+      const subAddBtn = wrapper.querySelector('.sm-subtask-add-btn');
+
+      const handleAddSub = async () => {
+        if (subInput && subInput.value.trim()) {
+          await this.plugin.saveSubtaskToVault(task, subInput.value.trim());
+          this.expandedTasks.add(task.id);
+          await this.renderTasks(container);
+        }
+      };
+
+      if (subAddBtn) subAddBtn.addEventListener('click', handleAddSub);
+      if (subInput) {
+        subInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') handleAddSub();
+        });
+      }
+
+      // Subtask Item Events (Toggle, Focus, Delete)
+      wrapper.querySelectorAll('.sm-subtask-item').forEach((sItem, sIdx) => {
+        const subtask = task.subtasks[sIdx];
+
+        const sCb = sItem.querySelector('.sm-subtask-checkbox');
+        if (sCb) {
+          sCb.addEventListener('change', async () => {
+            await this.plugin.toggleSubtaskInVault(subtask);
+            await this.renderTasks(container);
+          });
+        }
+
+        const sFocus = sItem.querySelector('.sm-btn-focus-subtask');
+        if (sFocus) {
+          sFocus.addEventListener('click', () => {
+            this.activeFocusTask = { title: `${task.title} [${subtask.title}]` };
+            container.querySelector('#sm-banner-task-title').textContent = `${task.title} ➔ ${subtask.title}`;
+            container.querySelector('#sm-active-task-banner').style.display = 'flex';
+            this.switchView('pomodoro');
+            new Notice(`⚡ Focused on subtask: ${subtask.title}`);
+          });
+        }
+
+        const sDel = sItem.querySelector('.sm-btn-del-subtask');
+        if (sDel) {
+          sDel.addEventListener('click', async () => {
+            await this.plugin.deleteSubtaskInVault(subtask);
+            await this.renderTasks(container);
+          });
+        }
+      });
+
+      // Parent Task Focus Button
+      const focusBtn = wrapper.querySelector('.sm-btn-focus-task');
       if (focusBtn) {
         focusBtn.addEventListener('click', () => {
           this.activeFocusTask = task;
@@ -1122,7 +1305,8 @@ class ScryingMirrorView extends ItemView {
         });
       }
 
-      const delBtn = card.querySelector('.sm-btn-del-task');
+      // Parent Task Delete Button
+      const delBtn = wrapper.querySelector('.sm-btn-del-task');
       if (delBtn) {
         delBtn.addEventListener('click', async () => {
           await this.plugin.deleteTaskFromVault(task);
@@ -1196,20 +1380,18 @@ class ScryingMirrorView extends ItemView {
     }
   }
 
-  // --- TELEMETRY & STATS RENDERER (ALL TIMESCALES) ---
+  // --- TELEMETRY & STATS RENDERER ---
   async renderTelemetry(container) {
     const data = await this.plugin.getTelemetryData();
     const today = new Date().toISOString().split('T')[0];
     const todayData = data.history[today] || { focusMins: 0, tasksDone: 0, hourly: Array(24).fill(0), sessions: [] };
 
-    // Update Top Summary Cards
     const totalHours = (data.totalFocusMins / 60).toFixed(1);
     container.querySelector('#sm-card-focus').textContent = totalHours + 'H';
     container.querySelector('#sm-card-streak').textContent = data.activeStreak + ' DAYS';
     container.querySelector('#sm-card-record').textContent = data.recordStreak + ' DAYS';
     container.querySelector('#sm-card-tasks').textContent = data.totalTasksCrushed;
 
-    // Update Home Hero Quick Stats
     const homeFocus = container.querySelector('#sm-stat-focus');
     if (homeFocus) homeFocus.textContent = totalHours + 'h';
     const homeTasks = container.querySelector('#sm-stat-tasks');
@@ -1217,16 +1399,9 @@ class ScryingMirrorView extends ItemView {
     const homeStreak = container.querySelector('#sm-stat-streak');
     if (homeStreak) homeStreak.textContent = data.activeStreak + 'd';
 
-    // 1. Render DAY Timeline
     this.renderDayStats(container, todayData);
-
-    // 2. Render WEEK Velocity Chart
     this.renderWeekStats(container, data);
-
-    // 3. Render MONTH Calendar
     this.renderMonthStats(container, data);
-
-    // 4. Render YEAR Heatmap
     this.renderYearStats(container, data);
   }
 
@@ -1283,7 +1458,7 @@ class ScryingMirrorView extends ItemView {
 
     const daysNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 is Sun
+    const dayOfWeek = now.getDay();
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     const monday = new Date(now);
     monday.setDate(now.getDate() + mondayOffset);
@@ -1330,7 +1505,7 @@ class ScryingMirrorView extends ItemView {
 
     const firstDay = new Date(this.selectedYear, this.selectedMonth - 1, 1).getDay();
     const daysInMonth = new Date(this.selectedYear, this.selectedMonth, 0).getDate();
-    const offset = firstDay === 0 ? 6 : firstDay - 1; // Mon start
+    const offset = firstDay === 0 ? 6 : firstDay - 1;
 
     const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     let html = '<div class="sm-month-headers-row">';
@@ -1354,7 +1529,7 @@ class ScryingMirrorView extends ItemView {
       if (dayData.focusMins > 90 || dayData.tasksDone >= 5) level = 4;
       else if (dayData.focusMins > 50 || dayData.tasksDone >= 3) level = 3;
       else if (dayData.focusMins > 20 || dayData.tasksDone >= 1) level = 2;
-      else if (dayData.focusMins > 0 || dayData.tasksDone > 0) level = 1;
+      else if (dayData.focusMins > 0) level = 1;
 
       html += `
         <div class="sm-month-cell level-${level} ${isToday ? 'is-today' : ''}">
