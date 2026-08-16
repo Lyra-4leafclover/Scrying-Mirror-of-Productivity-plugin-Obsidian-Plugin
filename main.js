@@ -182,7 +182,7 @@ class ScryingMirrorPlugin extends Plugin {
       content = content.replace(task.rawLine, task.rawLine.replace(/-\s*\[x\]/i, '- [ ]'));
     } else {
       content = content.replace(task.rawLine, task.rawLine.replace(/-\s*\[ \]/i, '- [x]'));
-      this.recordTelemetryTaskDone();
+      await this.recordTelemetryTaskDone();
     }
     await this.app.vault.modify(file, content);
   }
@@ -234,7 +234,7 @@ class ScryingMirrorPlugin extends Plugin {
       try { return JSON.parse(raw); } catch (e) {}
     }
     return {
-      history: {}, // 'YYYY-MM-DD': { focusMins: 0, tasksDone: 0, sessions: [] }
+      history: {}, // 'YYYY-MM-DD': { focusMins: 0, tasksDone: 0, hourly: Array(24).fill(0), sessions: [] }
       totalFocusMins: 0,
       totalTasksCrushed: 0,
       activeStreak: 0,
@@ -245,12 +245,17 @@ class ScryingMirrorPlugin extends Plugin {
   async recordTelemetryFocusSession(durationMins, taskTitle = null) {
     const data = await this.getTelemetryData();
     const today = new Date().toISOString().split('T')[0];
+    const currentHour = new Date().getHours();
 
     if (!data.history[today]) {
-      data.history[today] = { focusMins: 0, tasksDone: 0, sessions: [] };
+      data.history[today] = { focusMins: 0, tasksDone: 0, hourly: Array(24).fill(0), sessions: [] };
+    }
+    if (!data.history[today].hourly) {
+      data.history[today].hourly = Array(24).fill(0);
     }
 
     data.history[today].focusMins += durationMins;
+    data.history[today].hourly[currentHour] = (data.history[today].hourly[currentHour] || 0) + durationMins;
     data.history[today].sessions.push({
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       duration: durationMins,
@@ -268,7 +273,7 @@ class ScryingMirrorPlugin extends Plugin {
     const today = new Date().toISOString().split('T')[0];
 
     if (!data.history[today]) {
-      data.history[today] = { focusMins: 0, tasksDone: 0, sessions: [] };
+      data.history[today] = { focusMins: 0, tasksDone: 0, hourly: Array(24).fill(0), sessions: [] };
     }
 
     data.history[today].tasksDone += 1;
@@ -282,7 +287,6 @@ class ScryingMirrorPlugin extends Plugin {
     const dates = Object.keys(data.history).sort();
     let currentStreak = 0;
     let maxStreak = 0;
-    let prevDate = null;
 
     for (const d of dates) {
       if (data.history[d].focusMins > 0 || data.history[d].tasksDone > 0) {
@@ -398,10 +402,13 @@ class ScryingMirrorView extends ItemView {
     this.timerRunning = false;
     this.activeFocusTask = null;
 
-    // Filters
+    // Filters & Navigation
     this.statusFilter = 'ALL';
     this.tagFilter = 'ALL';
     this.statsScale = 'day';
+
+    this.selectedYear = new Date().getFullYear();
+    this.selectedMonth = new Date().getMonth() + 1; // 1-12
   }
 
   getViewType() {
@@ -454,10 +461,9 @@ class ScryingMirrorView extends ItemView {
           </div>
         </div>
 
-        <!-- 2. VIEW: TODO MATRIX (FULL FEATURED) -->
+        <!-- 2. VIEW: TODO MATRIX -->
         <div id="sm-view-todo" class="sm-subview">
           
-          <!-- Progress Header Bar -->
           <div class="sm-progress-card">
             <div class="sm-progress-labels">
               <span>TOTAL OBJECTIVES: <strong id="sm-prog-total">0</strong></span>
@@ -469,7 +475,6 @@ class ScryingMirrorView extends ItemView {
             </div>
           </div>
 
-          <!-- Input Row -->
           <div class="sm-todo-create-card">
             <input type="text" id="sm-task-input" class="sm-input" placeholder="+ Add a new high-leverage objective or mission...">
             <div class="sm-create-options-row">
@@ -495,7 +500,6 @@ class ScryingMirrorView extends ItemView {
             </div>
           </div>
 
-          <!-- Filter Toolbar -->
           <div class="sm-filter-toolbar">
             <div class="sm-status-filters">
               <button class="sm-filter-pill active" data-status="ALL">ALL</button>
@@ -512,7 +516,6 @@ class ScryingMirrorView extends ItemView {
             <button id="sm-clear-completed-btn" class="sm-clear-btn">CLEAR COMPLETED</button>
           </div>
 
-          <!-- Task Items List -->
           <div id="sm-todo-list" class="sm-todo-list-box"></div>
         </div>
 
@@ -591,32 +594,53 @@ class ScryingMirrorView extends ItemView {
             </div>
           </div>
 
-          <!-- DAY PANEL: 24-Hour Focus Timeline -->
+          <!-- DAY PANEL -->
           <div id="sm-stats-panel-day" class="sm-stats-panel active">
-            <div class="sm-panel-sub-header">✦ TODAY'S 24-HOUR FOCUS TIMELINE</div>
+            <div class="sm-panel-sub-header-row">
+              <span>✦ TODAY'S 24-HOUR FOCUS TIMELINE</span>
+              <span id="sm-day-metrics-summary" style="font-size: 0.72rem; color: var(--text-muted);">Focus: 0 mins | Tasks: 0</span>
+            </div>
             <div id="sm-day-timeline-grid" class="sm-timeline-grid"></div>
             <div class="sm-recorded-sessions-header">RECORDED FOCUS SESSIONS:</div>
-            <div id="sm-recorded-sessions-list" class="sm-sessions-list">
-              <div class="sm-empty-msg">No pomodoro sessions logged yet today. Click "Focus Chrono" to begin.</div>
-            </div>
+            <div id="sm-recorded-sessions-list" class="sm-sessions-list"></div>
           </div>
 
-          <!-- WEEK PANEL: Velocity Bar Chart -->
+          <!-- WEEK PANEL -->
           <div id="sm-stats-panel-week" class="sm-stats-panel">
-            <div class="sm-panel-sub-header">✦ 7-DAY PRODUCTIVITY VELOCITY</div>
+            <div class="sm-panel-sub-header-row">
+              <span>✦ 7-DAY PRODUCTIVITY VELOCITY</span>
+              <span id="sm-week-metrics-summary" style="font-size: 0.72rem; color: var(--text-muted);">0.0 hrs total</span>
+            </div>
             <div id="sm-week-chart" class="sm-week-chart-grid"></div>
           </div>
 
-          <!-- MONTH PANEL: Calendar Matrix -->
+          <!-- MONTH PANEL -->
           <div id="sm-stats-panel-month" class="sm-stats-panel">
-            <div class="sm-panel-sub-header">✦ MONTHLY CALENDAR MATRIX</div>
+            <div class="sm-month-nav-row">
+              <button id="sm-month-prev" class="sm-btn-sec" style="padding: 2px 8px;">◀ PREV</button>
+              <strong id="sm-month-label" style="font-size: 0.9rem; color: var(--text-normal);">August 2026</strong>
+              <button id="sm-month-next" class="sm-btn-sec" style="padding: 2px 8px;">NEXT ▶</button>
+            </div>
             <div id="sm-month-calendar" class="sm-month-grid"></div>
           </div>
 
-          <!-- YEAR PANEL: 365-Day Contribution Heatmap -->
+          <!-- YEAR PANEL -->
           <div id="sm-stats-panel-year" class="sm-stats-panel">
-            <div class="sm-panel-sub-header">✦ 365-DAY CONTRIBUTION TELEMETRY HEATMAP</div>
-            <div id="sm-year-heatmap" class="sm-year-grid"></div>
+            <div class="sm-panel-sub-header-row">
+              <span>✦ 365-DAY CONTRIBUTION TELEMETRY HEATMAP</span>
+              <div class="sm-heatmap-legend">
+                <span>Less</span>
+                <span class="sm-heat-cell level-0" style="display:inline-block; width:9px; height:9px;"></span>
+                <span class="sm-heat-cell level-1" style="display:inline-block; width:9px; height:9px;"></span>
+                <span class="sm-heat-cell level-2" style="display:inline-block; width:9px; height:9px;"></span>
+                <span class="sm-heat-cell level-3" style="display:inline-block; width:9px; height:9px;"></span>
+                <span class="sm-heat-cell level-4" style="display:inline-block; width:9px; height:9px;"></span>
+                <span>More</span>
+              </div>
+            </div>
+            <div class="sm-heatmap-scroll-box">
+              <div id="sm-year-heatmap" class="sm-year-grid"></div>
+            </div>
           </div>
         </div>
 
@@ -646,14 +670,13 @@ class ScryingMirrorView extends ItemView {
           </div>
         </div>
 
-        <!-- 6. VIEW: EXPANSIVE FULL-WIDTH JOURNAL -->
+        <!-- 6. VIEW: JOURNAL -->
         <div id="sm-view-journal" class="sm-subview">
           <div class="sm-panel-header">
             <h3>Liquid Writings Studio</h3>
             <button id="sm-toggle-journal-composer" class="sm-btn-primary">+ WRITE NEW LOG</button>
           </div>
           
-          <!-- Full-Width Composer -->
           <div id="sm-journal-composer-box" class="sm-journal-composer-card">
             <input type="text" id="sm-journal-title" class="sm-input" placeholder="Article / Log Title...">
             <input type="text" id="sm-journal-summary" class="sm-input" placeholder="Short reflection summary...">
@@ -664,7 +687,6 @@ class ScryingMirrorView extends ItemView {
             </div>
           </div>
 
-          <!-- Existing Journal Logs List -->
           <div id="sm-journal-list" class="sm-journal-list-grid"></div>
         </div>
 
@@ -718,7 +740,6 @@ class ScryingMirrorView extends ItemView {
       });
     }
 
-    // Status filter pills
     container.querySelectorAll('.sm-filter-pill').forEach(pill => {
       pill.addEventListener('click', (e) => {
         container.querySelectorAll('.sm-filter-pill').forEach(p => p.removeClass('active'));
@@ -728,7 +749,6 @@ class ScryingMirrorView extends ItemView {
       });
     });
 
-    // Tag filter pills
     container.querySelectorAll('.sm-tag-pill').forEach(pill => {
       pill.addEventListener('click', (e) => {
         container.querySelectorAll('.sm-tag-pill').forEach(p => p.removeClass('active'));
@@ -738,7 +758,6 @@ class ScryingMirrorView extends ItemView {
       });
     });
 
-    // Clear completed tasks
     const clearCompletedBtn = container.querySelector('#sm-clear-completed-btn');
     if (clearCompletedBtn) {
       clearCompletedBtn.addEventListener('click', async () => {
@@ -802,6 +821,31 @@ class ScryingMirrorView extends ItemView {
         this.renderTelemetry(container);
       });
     });
+
+    // Month Navigation
+    const monthPrev = container.querySelector('#sm-month-prev');
+    if (monthPrev) {
+      monthPrev.addEventListener('click', () => {
+        this.selectedMonth--;
+        if (this.selectedMonth < 1) {
+          this.selectedMonth = 12;
+          this.selectedYear--;
+        }
+        this.renderMonthStats(container);
+      });
+    }
+
+    const monthNext = container.querySelector('#sm-month-next');
+    if (monthNext) {
+      monthNext.addEventListener('click', () => {
+        this.selectedMonth++;
+        if (this.selectedMonth > 12) {
+          this.selectedMonth = 1;
+          this.selectedYear++;
+        }
+        this.renderMonthStats(container);
+      });
+    }
 
     // --- LECTURE HUB EVENTS ---
     const ytLoadBtn = container.querySelector('#sm-yt-load-btn');
@@ -867,7 +911,6 @@ class ScryingMirrorView extends ItemView {
 
     const allTasks = await this.plugin.getTasksFromVault();
 
-    // Calculate Progress Bar Metrics
     const total = allTasks.length;
     const completedCount = allTasks.filter(t => t.completed).length;
     const percent = total > 0 ? Math.round((completedCount / total) * 100) : 0;
@@ -877,7 +920,6 @@ class ScryingMirrorView extends ItemView {
     container.querySelector('#sm-prog-percent').textContent = percent + '%';
     container.querySelector('#sm-prog-fill').style.width = percent + '%';
 
-    // Apply Filter State
     let filtered = allTasks;
     if (this.statusFilter === 'ACTIVE') filtered = filtered.filter(t => !t.completed);
     else if (this.statusFilter === 'COMPLETED') filtered = filtered.filter(t => t.completed);
@@ -913,11 +955,9 @@ class ScryingMirrorView extends ItemView {
     });
     list.innerHTML = html;
 
-    // Bind Task Actions
     list.querySelectorAll('.sm-task-card').forEach((card, idx) => {
       const task = filtered[idx];
 
-      // Checkbox Toggle
       const cb = card.querySelector('.sm-task-checkbox');
       cb.addEventListener('change', async () => {
         await this.plugin.toggleTaskInVault(task);
@@ -925,7 +965,6 @@ class ScryingMirrorView extends ItemView {
         this.renderTelemetry(container);
       });
 
-      // [⚡ FOCUS] Button Action -> Jumps directly to Pomodoro Chrono for this task!
       const focusBtn = card.querySelector('.sm-btn-focus-task');
       if (focusBtn) {
         focusBtn.addEventListener('click', () => {
@@ -937,7 +976,6 @@ class ScryingMirrorView extends ItemView {
         });
       }
 
-      // Delete Button
       const delBtn = card.querySelector('.sm-btn-del-task');
       if (delBtn) {
         delBtn.addEventListener('click', async () => {
@@ -971,10 +1009,8 @@ class ScryingMirrorView extends ItemView {
           const durationMins = Math.round(this.timerTotal / 60);
           const taskName = this.activeFocusTask ? this.activeFocusTask.title : null;
 
-          // Record Telemetry
           this.plugin.recordTelemetryFocusSession(durationMins, taskName);
 
-          // If linked to a task, increment pomodoro count in vault
           if (this.activeFocusTask) {
             this.plugin.incrementTaskPomodoroInVault(this.activeFocusTask.title);
           }
@@ -1014,11 +1050,11 @@ class ScryingMirrorView extends ItemView {
     }
   }
 
-  // --- TELEMETRY & STATS RENDERER ---
+  // --- TELEMETRY & STATS RENDERER (ALL TIMESCALES) ---
   async renderTelemetry(container) {
     const data = await this.plugin.getTelemetryData();
     const today = new Date().toISOString().split('T')[0];
-    const todayData = data.history[today] || { focusMins: 0, tasksDone: 0, sessions: [] };
+    const todayData = data.history[today] || { focusMins: 0, tasksDone: 0, hourly: Array(24).fill(0), sessions: [] };
 
     // Update Top Summary Cards
     const totalHours = (data.totalFocusMins / 60).toFixed(1);
@@ -1035,17 +1071,47 @@ class ScryingMirrorView extends ItemView {
     const homeStreak = container.querySelector('#sm-stat-streak');
     if (homeStreak) homeStreak.textContent = data.activeStreak + 'd';
 
-    // Render DAY Timeline (24 Hours)
+    // 1. Render DAY Timeline
+    this.renderDayStats(container, todayData);
+
+    // 2. Render WEEK Velocity Chart
+    this.renderWeekStats(container, data);
+
+    // 3. Render MONTH Calendar
+    this.renderMonthStats(container, data);
+
+    // 4. Render YEAR Heatmap
+    this.renderYearStats(container, data);
+  }
+
+  renderDayStats(container, todayData) {
+    const summaryLbl = container.querySelector('#sm-day-metrics-summary');
+    if (summaryLbl) {
+      summaryLbl.textContent = `Focus: ${todayData.focusMins} mins | Tasks: ${todayData.tasksDone}`;
+    }
+
     const dayGrid = container.querySelector('#sm-day-timeline-grid');
     if (dayGrid) {
       let timelineHtml = '';
+      const hourly = todayData.hourly || Array(24).fill(0);
+      const maxMins = 60;
+
       for (let h = 0; h < 24; h++) {
-        timelineHtml += `<div class="sm-hour-cell"><span class="sm-hour-label">${h % 3 === 0 ? h : ''}</span></div>`;
+        const mins = hourly[h] || 0;
+        const percent = mins > 0 ? Math.min(100, Math.round((mins / maxMins) * 100)) : 0;
+
+        timelineHtml += `
+          <div class="sm-hour-wrapper" title="${String(h).padStart(2, '0')}:00 - ${mins}m focus">
+            <div class="sm-hour-track">
+              <div class="sm-hour-fill" style="height: ${percent}%;"></div>
+            </div>
+            <span class="sm-hour-label">${h % 3 === 0 ? h : ''}</span>
+          </div>
+        `;
       }
       dayGrid.innerHTML = timelineHtml;
     }
 
-    // Render Recorded Sessions
     const sessionsBox = container.querySelector('#sm-recorded-sessions-list');
     if (sessionsBox) {
       if (todayData.sessions && todayData.sessions.length > 0) {
@@ -1054,25 +1120,141 @@ class ScryingMirrorView extends ItemView {
           sHtml += `
             <div class="sm-session-item">
               <span>⏱️ <strong>${s.duration}m Focus</strong> (${s.task})</span>
-              <span style="color: var(--text-muted);">${s.time}</span>
+              <span style="color: var(--text-muted); font-size: 0.7rem;">${s.time}</span>
             </div>
           `;
         });
         sessionsBox.innerHTML = sHtml;
       } else {
-        sessionsBox.innerHTML = `<div class="sm-empty-msg">No pomodoro sessions logged yet today. Click "Focus Chrono" to begin.</div>`;
+        sessionsBox.innerHTML = `<div class="sm-empty-msg" style="padding: 12px 0;">No pomodoro sessions logged yet today. Click "Focus Chrono" to begin.</div>`;
       }
+    }
+  }
+
+  renderWeekStats(container, data) {
+    const weekGrid = container.querySelector('#sm-week-chart');
+    if (!weekGrid) return;
+
+    const daysNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 is Sun
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + mondayOffset);
+
+    let totalWeekMins = 0;
+    let weekHtml = '';
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+      const isToday = dateStr === now.toISOString().split('T')[0];
+      const dayData = (data && data.history && data.history[dateStr]) || { focusMins: 0, tasksDone: 0 };
+      
+      totalWeekMins += dayData.focusMins;
+      const heightPercent = dayData.focusMins > 0 ? Math.min(100, Math.round((dayData.focusMins / 120) * 100)) : 0;
+
+      weekHtml += `
+        <div class="sm-week-col ${isToday ? 'is-today' : ''}">
+          <div class="sm-week-val">${dayData.focusMins > 0 ? `${dayData.focusMins}m` : ''}</div>
+          <div class="sm-week-track">
+            <div class="sm-week-fill" style="height: ${heightPercent}%;"></div>
+          </div>
+          <div class="sm-week-lbl">${daysNames[i]}</div>
+          <div class="sm-week-tasks">${dayData.tasksDone > 0 ? `✓${dayData.tasksDone}` : '-'}</div>
+        </div>
+      `;
     }
 
-    // Render 365-Day Heatmap
-    const yearGrid = container.querySelector('#sm-year-heatmap');
-    if (yearGrid) {
-      let heatHtml = '';
-      for (let i = 0; i < 52 * 7; i++) {
-        heatHtml += `<div class="sm-heat-cell level-0"></div>`;
-      }
-      yearGrid.innerHTML = heatHtml;
+    weekGrid.innerHTML = weekHtml;
+
+    const weekSummary = container.querySelector('#sm-week-metrics-summary');
+    if (weekSummary) {
+      weekSummary.textContent = `${(totalWeekMins / 60).toFixed(1)} hrs total`;
     }
+  }
+
+  renderMonthStats(container, data) {
+    const calendarGrid = container.querySelector('#sm-month-calendar');
+    if (!calendarGrid) return;
+
+    const monthsNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    container.querySelector('#sm-month-label').textContent = `${monthsNames[this.selectedMonth - 1]} ${this.selectedYear}`;
+
+    const firstDay = new Date(this.selectedYear, this.selectedMonth - 1, 1).getDay();
+    const daysInMonth = new Date(this.selectedYear, this.selectedMonth, 0).getDate();
+    const offset = firstDay === 0 ? 6 : firstDay - 1; // Mon start
+
+    const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    let html = '<div class="sm-month-headers-row">';
+    dayHeaders.forEach(d => html += `<div class="sm-month-hdr-cell">${d}</div>`);
+    html += '</div><div class="sm-month-days-grid">';
+
+    for (let i = 0; i < offset; i++) {
+      html += '<div class="sm-month-cell empty"></div>';
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const mStr = String(this.selectedMonth).padStart(2, '0');
+      const dStr = String(day).padStart(2, '0');
+      const dateStr = `${this.selectedYear}-${mStr}-${dStr}`;
+      const isToday = dateStr === todayStr;
+      const dayData = (data && data.history && data.history[dateStr]) || { focusMins: 0, tasksDone: 0 };
+
+      let level = 0;
+      if (dayData.focusMins > 90 || dayData.tasksDone >= 5) level = 4;
+      else if (dayData.focusMins > 50 || dayData.tasksDone >= 3) level = 3;
+      else if (dayData.focusMins > 20 || dayData.tasksDone >= 1) level = 2;
+      else if (dayData.focusMins > 0) level = 1;
+
+      html += `
+        <div class="sm-month-cell level-${level} ${isToday ? 'is-today' : ''}">
+          <span class="sm-month-num">${day}</span>
+          ${dayData.focusMins > 0 || dayData.tasksDone > 0 ? `
+            <div class="sm-month-cell-metrics">
+              ${dayData.focusMins > 0 ? `<span class="sm-cell-mins">${dayData.focusMins}m</span>` : ''}
+              ${dayData.tasksDone > 0 ? `<span class="sm-cell-tasks">✓${dayData.tasksDone}</span>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    html += '</div>';
+    calendarGrid.innerHTML = html;
+  }
+
+  renderYearStats(container, data) {
+    const yearGrid = container.querySelector('#sm-year-heatmap');
+    if (!yearGrid) return;
+
+    let html = '';
+    const now = new Date();
+
+    // 52 weeks x 7 days
+    for (let w = 51; w >= 0; w--) {
+      html += '<div class="sm-heat-col">';
+      for (let d = 0; d < 7; d++) {
+        const targetDate = new Date(now);
+        targetDate.setDate(now.getDate() - (w * 7 + (6 - d)));
+        const dateStr = targetDate.toISOString().split('T')[0];
+        const dayData = (data && data.history && data.history[dateStr]) || { focusMins: 0, tasksDone: 0 };
+
+        let level = 0;
+        if (dayData.focusMins > 90 || dayData.tasksDone >= 5) level = 4;
+        else if (dayData.focusMins > 50 || dayData.tasksDone >= 3) level = 3;
+        else if (dayData.focusMins > 20 || dayData.tasksDone >= 1) level = 2;
+        else if (dayData.focusMins > 0 || dayData.tasksDone > 0) level = 1;
+
+        html += `<div class="sm-heat-cell level-${level}" title="${dateStr}: ${dayData.focusMins}m focus, ${dayData.tasksDone} tasks"></div>`;
+      }
+      html += '</div>';
+    }
+
+    yearGrid.innerHTML = html;
   }
 
   // --- JOURNAL LOGS RENDERER ---

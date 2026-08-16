@@ -1,6 +1,6 @@
 /* ==========================================================================
    SCRYING MIRROR — OBSIDIAN NATIVE PLUGIN STYLES
-   Full Feature Parity: Task Focus, Telemetry Dashboard, Full-Width Journal
+   Full Real-Data Telemetry Charts (Day 24h, Week Bars, Month Grid, Year Heatmap)
    ========================================================================== */
 
 .scrying-mirror-obsidian-container {
@@ -479,7 +479,7 @@
   color: var(--text-normal);
 }
 
-/* 4. TELEMETRY STATS */
+/* 4. TELEMETRY STATS & CHARTS */
 .sm-stats-scale-tabs {
   display: flex;
   gap: 6px;
@@ -539,42 +539,66 @@
   border: 1px solid var(--background-modifier-border);
   border-radius: 12px;
   padding: 14px;
+  overflow-y: auto;
 }
 
 .sm-stats-panel.active {
   display: flex;
 }
 
-.sm-panel-sub-header {
+.sm-panel-sub-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-family: var(--font-monospace);
   font-size: 0.74rem;
   color: var(--interactive-accent, #a78bfa);
   margin-bottom: 12px;
 }
 
+/* DAY: 24h Timeline Bars */
 .sm-timeline-grid {
-  display: grid;
-  grid-template-columns: repeat(24, 1fr);
-  gap: 3px;
-  height: 60px;
-  background: var(--background-primary);
-  border-radius: 6px;
-  padding: 6px;
-  margin-bottom: 14px;
-}
-
-.sm-hour-cell {
-  background: var(--background-modifier-border);
-  border-radius: 3px;
   display: flex;
   align-items: flex-end;
-  justify-content: center;
+  gap: 3px;
+  height: 80px;
+  background: var(--background-primary);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 14px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.sm-hour-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.sm-hour-track {
+  flex: 1;
+  width: 100%;
+  background: var(--background-modifier-border);
+  border-radius: 2px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.sm-hour-fill {
+  width: 100%;
+  background: var(--interactive-accent, #a78bfa);
+  box-shadow: 0 0 6px rgba(167, 139, 250, 0.4);
+  transition: height 0.3s ease;
 }
 
 .sm-hour-label {
   font-family: var(--font-monospace);
   font-size: 0.55rem;
   color: var(--text-muted);
+  margin-top: 2px;
 }
 
 .sm-recorded-sessions-header {
@@ -588,32 +612,192 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 120px;
+  max-height: 140px;
   overflow-y: auto;
 }
 
 .sm-session-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-family: var(--font-monospace);
   font-size: 0.74rem;
   padding: 6px 10px;
   background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
 }
 
-.sm-year-grid {
+/* WEEK: 7-Day Velocity Bars */
+.sm-week-chart-grid {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  height: 150px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 12px 8px;
+}
+
+.sm-week-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  width: 42px;
+}
+
+.sm-week-val {
+  font-family: var(--font-monospace);
+  font-size: 0.65rem;
+  color: var(--interactive-accent, #a78bfa);
+  margin-bottom: 4px;
+}
+
+.sm-week-track {
+  flex: 1;
+  width: 14px;
+  background: var(--background-modifier-border);
+  border-radius: 4px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.sm-week-fill {
+  width: 100%;
+  background: var(--interactive-accent, #a78bfa);
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(167, 139, 250, 0.4);
+  transition: height 0.4s ease;
+}
+
+.sm-week-lbl {
+  font-family: var(--font-monospace);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.sm-week-tasks {
+  font-family: var(--font-monospace);
+  font-size: 0.62rem;
+  color: #a3e635;
+}
+
+/* MONTH: Calendar Matrix */
+.sm-month-nav-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-monospace);
+  margin-bottom: 10px;
+}
+
+.sm-month-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sm-month-headers-row {
   display: grid;
-  grid-template-columns: repeat(52, 1fr);
-  grid-template-rows: repeat(7, 1fr);
-  gap: 2px;
-  height: 90px;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-family: var(--font-monospace);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+}
+
+.sm-month-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.sm-month-cell {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  min-height: 42px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: var(--font-monospace);
+}
+
+.sm-month-cell.empty {
+  background: transparent;
+  border-color: transparent;
+}
+
+.sm-month-cell.is-today {
+  border-color: var(--interactive-accent, #a78bfa);
+  box-shadow: 0 0 8px rgba(167, 139, 250, 0.3);
+}
+
+.sm-month-num {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.sm-month-cell-metrics {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.62rem;
+}
+
+.sm-cell-mins {
+  color: var(--interactive-accent, #a78bfa);
+  font-weight: bold;
+}
+
+.sm-cell-tasks {
+  color: #a3e635;
+}
+
+/* YEAR: 365-Day Heatmap */
+.sm-heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+.sm-heatmap-scroll-box {
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.sm-year-grid {
+  display: flex;
+  gap: 3px;
+  min-width: 680px;
+  height: 95px;
+}
+
+.sm-heat-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .sm-heat-cell {
-  background: var(--background-modifier-border);
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
+  transition: all 0.2s ease;
 }
+
+.sm-heat-cell.level-0 { background: var(--background-modifier-border); }
+.sm-heat-cell.level-1 { background: #3b2d54; }
+.sm-heat-cell.level-2 { background: #63478c; }
+.sm-heat-cell.level-3 { background: #8b62c4; }
+.sm-heat-cell.level-4 { background: #b794f4; box-shadow: 0 0 6px rgba(183, 148, 244, 0.6); }
 
 /* 5. LECTURE HUB */
 .sm-lecture-grid {
