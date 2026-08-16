@@ -1,6 +1,6 @@
 /* ==========================================================================
    SCRYING MIRROR — OBSIDIAN NATIVE PLUGIN STYLES
-   Full Real-Data Telemetry + Unlimited Subtasks + Offline Study Logger
+   Robust Layout, Non-Shrinking Tasks, Unlimited Subtasks, Full Telemetry
    ========================================================================== */
 
 .scrying-mirror-obsidian-container {
@@ -88,7 +88,7 @@
 /* SUBVIEWS */
 .sm-subview {
   display: none;
-  height: 100%;
+  width: 100%;
   flex-direction: column;
 }
 
@@ -100,6 +100,7 @@
 .sm-hero-center {
   margin: auto;
   text-align: center;
+  padding: 40px 0;
 }
 
 .sm-prompt-sym {
@@ -144,13 +145,14 @@
   color: var(--interactive-accent, #a78bfa);
 }
 
-/* 2. DIRECTIVES & TASK MATRIX WITH UNLIMITED SUBTASKS */
+/* 2. DIRECTIVES & TASK MATRIX */
 .sm-progress-card {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
   padding: 10px 14px;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .sm-progress-labels {
@@ -183,11 +185,12 @@
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 12px;
   margin-bottom: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .sm-create-options-row {
@@ -199,9 +202,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .sm-status-filters, .sm-tag-filters {
@@ -215,7 +219,7 @@
   color: var(--text-muted);
   font-family: var(--font-monospace);
   font-size: 0.68rem;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -243,12 +247,11 @@
 .sm-todo-list-box {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  overflow-y: auto;
-  flex: 1;
+  gap: 8px;
+  width: 100%;
 }
 
-/* TASK WRAPPER & CARD */
+/* ROBUST TASK WRAPPER (NO SHRINKING) */
 .sm-task-wrapper {
   display: flex;
   flex-direction: column;
@@ -256,7 +259,9 @@
   border: 1px solid var(--background-modifier-border);
   border-radius: 10px;
   overflow: hidden;
-  transition: border-color 0.2s ease;
+  flex-shrink: 0;
+  width: 100%;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .sm-task-wrapper:hover {
@@ -267,7 +272,18 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 12px 16px;
+  min-height: 52px;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.sm-task-checkbox {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  cursor: pointer;
+  accent-color: var(--interactive-accent, #a78bfa);
 }
 
 .sm-task-card.completed {
@@ -283,11 +299,15 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .sm-task-title {
-  font-size: 0.88rem;
-  font-weight: 500;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-normal);
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 .sm-task-meta {
@@ -295,21 +315,22 @@
   align-items: center;
   gap: 8px;
   font-family: var(--font-monospace);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   flex-wrap: wrap;
 }
 
 .sm-tag-cat {
   background: var(--background-modifier-border);
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
   color: var(--text-muted);
 }
 
 .sm-task-prio {
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
   border: 1px solid var(--background-modifier-border);
+  font-weight: 600;
 }
 
 .prio-critical { color: #f87171; border-color: #f87171; }
@@ -322,25 +343,27 @@
 }
 
 .sm-btn-expand-subtasks {
-  background: transparent;
-  border: 1px solid var(--background-modifier-border);
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px solid var(--interactive-accent, #a78bfa);
   color: var(--interactive-accent, #a78bfa);
   font-family: var(--font-monospace);
-  font-size: 0.65rem;
-  padding: 1px 6px;
+  font-size: 0.68rem;
+  padding: 2px 8px;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .sm-btn-expand-subtasks:hover {
-  background: var(--background-modifier-hover);
+  background: var(--interactive-accent, #a78bfa);
+  color: #000;
 }
 
 .sm-task-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .sm-btn-focus-task {
@@ -350,10 +373,11 @@
   font-family: var(--font-monospace);
   font-size: 0.72rem;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .sm-btn-focus-task:hover {
@@ -365,9 +389,10 @@
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   cursor: pointer;
   padding: 0 4px;
+  line-height: 1;
 }
 
 .sm-btn-del-task:hover {
@@ -380,21 +405,32 @@
   flex-direction: column;
   background: var(--background-primary);
   border-top: 1px solid var(--background-modifier-border);
-  padding: 8px 14px 10px 36px;
-  gap: 6px;
+  padding: 10px 16px 12px 42px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .sm-subtasks-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .sm-subtask-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 3px 0;
+  min-height: 26px;
+  flex-shrink: 0;
+}
+
+.sm-subtask-checkbox {
+  width: 15px !important;
+  height: 15px !important;
+  min-width: 15px !important;
+  cursor: pointer;
+  accent-color: var(--interactive-accent, #a78bfa);
 }
 
 .sm-subtask-item.completed .sm-subtask-title {
@@ -404,7 +440,9 @@
 
 .sm-subtask-title {
   flex: 1;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
+  color: var(--text-normal);
+  word-break: break-word;
 }
 
 .sm-btn-focus-subtask {
@@ -412,7 +450,7 @@
   border: 1px solid var(--background-modifier-border);
   color: var(--interactive-accent, #a78bfa);
   font-size: 0.65rem;
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 4px;
   cursor: pointer;
 }
@@ -426,8 +464,9 @@
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 1rem;
   cursor: pointer;
+  line-height: 1;
 }
 
 .sm-btn-del-subtask:hover {
@@ -441,14 +480,16 @@
 }
 
 .sm-subtask-input {
-  font-size: 0.76rem !important;
-  padding: 4px 8px !important;
-  height: 26px !important;
+  font-size: 0.78rem !important;
+  padding: 5px 10px !important;
+  height: 30px !important;
+  background: var(--background-secondary) !important;
 }
 
 .sm-subtask-add-btn {
-  padding: 2px 8px !important;
-  font-size: 0.75rem !important;
+  padding: 2px 10px !important;
+  font-size: 0.82rem !important;
+  height: 30px !important;
 }
 
 /* 3. POMODORO CHRONO & FOCUS BANNER */
@@ -456,14 +497,14 @@
   background: rgba(167, 139, 250, 0.15);
   border: 1px solid var(--interactive-accent, #a78bfa);
   border-radius: 8px;
-  padding: 6px 14px;
+  padding: 8px 16px;
   font-family: var(--font-monospace);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
 }
 
 .sm-banner-close {
@@ -479,7 +520,8 @@
   align-items: center;
   justify-content: center;
   margin: auto;
-  gap: 14px;
+  gap: 16px;
+  padding: 20px 0;
 }
 
 .sm-timer-modes {
@@ -493,7 +535,7 @@
   color: var(--text-muted);
   font-family: var(--font-monospace);
   font-size: 0.72rem;
-  padding: 4px 12px;
+  padding: 5px 14px;
   border-radius: 14px;
   cursor: pointer;
 }
@@ -505,8 +547,8 @@
 
 .sm-timer-dial-wrapper {
   position: relative;
-  width: 200px;
-  height: 200px;
+  width: 210px;
+  height: 210px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -541,13 +583,13 @@
 
 .sm-time-digits {
   font-family: var(--font-monospace);
-  font-size: 2.6rem;
+  font-size: 2.7rem;
   font-weight: 700;
 }
 
 .sm-time-status {
   font-family: var(--font-monospace);
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   color: var(--interactive-accent, #a78bfa);
   letter-spacing: 1.5px;
 }
@@ -560,7 +602,7 @@
 .sm-presets-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-family: var(--font-monospace);
 }
 
@@ -569,9 +611,9 @@
   border: 1px solid var(--background-modifier-border);
   color: var(--text-muted);
   font-family: var(--font-monospace);
-  font-size: 0.68rem;
-  padding: 2px 7px;
-  border-radius: 4px;
+  font-size: 0.72rem;
+  padding: 3px 9px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
@@ -585,9 +627,10 @@
   background: var(--background-secondary);
   border: 1px solid var(--interactive-accent, #a78bfa);
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 16px;
   margin-bottom: 14px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
 }
 
 .sm-manual-log-header {
@@ -595,10 +638,10 @@
   justify-content: space-between;
   align-items: center;
   font-family: var(--font-monospace);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--interactive-accent, #a78bfa);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .sm-manual-row {
@@ -630,7 +673,7 @@
   color: var(--text-muted);
   font-family: var(--font-monospace);
   font-size: 0.7rem;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -645,6 +688,7 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   margin-bottom: 14px;
+  flex-shrink: 0;
 }
 
 .sm-metric-card {
@@ -657,14 +701,14 @@
 
 .sm-metric-val {
   font-family: var(--font-monospace);
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--text-normal);
 }
 
 .sm-metric-lbl {
   font-family: var(--font-monospace);
-  font-size: 0.62rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
   letter-spacing: 1px;
   margin-top: 4px;
