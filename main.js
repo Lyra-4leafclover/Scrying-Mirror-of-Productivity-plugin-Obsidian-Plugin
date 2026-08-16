@@ -71,11 +71,14 @@ class ScryingMirrorPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data ? data.settings : {});
   }
 
   async saveSettings() {
-    await this.saveData(this.settings);
+    const data = (await this.loadData()) || {};
+    data.settings = this.settings;
+    await this.saveData(data);
   }
 
   async activateView(initialView = null) {
@@ -322,11 +325,11 @@ class ScryingMirrorPlugin extends Plugin {
     await this.app.vault.modify(file, filtered.join('\n'));
   }
 
-  // --- TELEMETRY & STATS DATA ENGINE ---
+  // --- NATIVE TELEMETRY DATA ENGINE (USES OBSIDIAN DATA API) ---
   async getTelemetryData() {
-    const raw = localStorage.getItem('sm_vault_telemetry');
-    if (raw) {
-      try { return JSON.parse(raw); } catch (e) {}
+    const data = await this.loadData();
+    if (data && data.telemetry) {
+      return data.telemetry;
     }
     return {
       history: {},
@@ -335,6 +338,12 @@ class ScryingMirrorPlugin extends Plugin {
       activeStreak: 0,
       recordStreak: 0
     };
+  }
+
+  async saveTelemetryData(telemetry) {
+    const data = (await this.loadData()) || {};
+    data.telemetry = telemetry;
+    await this.saveData(data);
   }
 
   async recordTelemetryFocusSession(durationMins, taskTitle = null) {
@@ -360,7 +369,7 @@ class ScryingMirrorPlugin extends Plugin {
     data.totalFocusMins += durationMins;
     this.calculateStreaks(data);
 
-    localStorage.setItem('sm_vault_telemetry', JSON.stringify(data));
+    await this.saveTelemetryData(data);
   }
 
   async recordTelemetryManualSession(dateStr, durationMins, subject = 'Offline Study', category = 'Study') {
@@ -386,7 +395,7 @@ class ScryingMirrorPlugin extends Plugin {
     data.totalFocusMins += durationMins;
     this.calculateStreaks(data);
 
-    localStorage.setItem('sm_vault_telemetry', JSON.stringify(data));
+    await this.saveTelemetryData(data);
     new Notice(`✓ Logged ${(durationMins / 60).toFixed(1)}h of offline study for ${targetDate}`);
   }
 
@@ -402,7 +411,7 @@ class ScryingMirrorPlugin extends Plugin {
     data.totalTasksCrushed += 1;
     this.calculateStreaks(data);
 
-    localStorage.setItem('sm_vault_telemetry', JSON.stringify(data));
+    await this.saveTelemetryData(data);
   }
 
   calculateStreaks(data) {
@@ -559,7 +568,6 @@ ${content}
         const summaryMatch = raw.match(/summary:\s*"(.*?)"/) || [null, 'Personal log reflection'];
         const dateMatch = raw.match(/date:\s*"(.*?)"/) || [null, ''];
         
-        // Extract raw body after frontmatter and main heading
         const bodyContent = raw.replace(/^---[\s\S]*?---\s*/, '').replace(/^#\s+.*?\n/, '').replace(/^>\s+.*?\n/gm, '').replace(/^---\s*/gm, '').trim();
 
         logs.push({
@@ -929,7 +937,7 @@ class ScryingMirrorView extends ItemView {
             <span id="sm-journal-count" style="font-family: var(--font-monospace); font-size: 0.72rem; color: var(--text-muted);">0 Articles</span>
           </div>
           
-          <!-- Journal Composer (with Image Upload, Clipboard Paste, Markdown Tools) -->
+          <!-- Journal Composer -->
           <div id="sm-journal-composer-box" class="sm-journal-composer-card" style="display: none;">
             <div class="sm-composer-title-row">
               <span id="sm-composer-heading" style="font-family: var(--font-monospace); font-size: 0.76rem; font-weight: 600; color: var(--interactive-accent, #a78bfa);">✦ WRITE NEW ARTICLE</span>
@@ -1538,7 +1546,7 @@ class ScryingMirrorView extends ItemView {
       container.querySelector('#sm-timer-toggle').textContent = '⏸ PAUSE';
       container.querySelector('#sm-timer-toggle').addClass('btn-running');
 
-      this.currentTimer = setInterval(() => {
+      this.currentTimer = setInterval(async () => {
         if (this.timeLeft > 0) {
           this.timeLeft--;
           this.updateTimerDisplay(container);
@@ -1549,18 +1557,18 @@ class ScryingMirrorView extends ItemView {
           const durationMins = Math.round(this.timerTotal / 60);
           const taskName = this.activeFocusTask ? this.activeFocusTask.title : null;
 
-          this.plugin.recordTelemetryFocusSession(durationMins, taskName);
+          await this.plugin.recordTelemetryFocusSession(durationMins, taskName);
 
           if (this.activeFocusTask) {
-            this.plugin.incrementTaskPomodoroInVault(this.activeFocusTask.title);
+            await this.plugin.incrementTaskPomodoroInVault(this.activeFocusTask.title);
           }
 
           new Notice('🔔 Focus session complete! Logged to vault telemetry.');
           container.querySelector('#sm-timer-toggle').textContent = '▶ START FOCUS';
           container.querySelector('#sm-timer-toggle').removeClass('btn-running');
 
-          this.renderTasks(container);
-          this.renderTelemetry(container);
+          await this.renderTasks(container);
+          await this.renderTelemetry(container);
         }
       }, 1000);
     }
