@@ -604,8 +604,12 @@ class ScryingMirrorView extends ItemView {
     this.editingJournalFile = null;
     this.journalSort = 'NEWEST';
 
+    // Multi-timescale Telemetry Navigation States
+    this.selectedDayOffset = 0; // 0 = today, -1 = yesterday, etc.
+    this.selectedWeekOffset = 0; // 0 = this week, -1 = last week, etc.
     this.selectedYear = new Date().getFullYear();
     this.selectedMonth = new Date().getMonth() + 1;
+    this.cachedTelemetry = null;
   }
 
   getViewType() {
@@ -844,20 +848,28 @@ class ScryingMirrorView extends ItemView {
 
           <!-- DAY PANEL -->
           <div id="sm-stats-panel-day" class="sm-stats-panel active">
-            <div class="sm-panel-sub-header-row">
-              <span>✦ TODAY'S 24-HOUR FOCUS TIMELINE</span>
-              <span id="sm-day-metrics-summary" style="font-size: 0.72rem; color: var(--text-muted);">Focus: 0 mins | Tasks: 0</span>
+            <div class="sm-stats-nav-row">
+              <button id="sm-day-prev" class="sm-btn-sec" style="padding: 3px 10px;">◀ PREV DAY</button>
+              <div class="sm-nav-date-group">
+                <strong id="sm-day-label" style="font-size: 0.88rem; color: var(--text-normal);">Today — Aug 17, 2026</strong>
+                <span id="sm-day-metrics-summary" style="font-size: 0.72rem; color: var(--interactive-accent, #a78bfa);">Focus: 0 mins | Tasks: 0</span>
+              </div>
+              <button id="sm-day-next" class="sm-btn-sec" style="padding: 3px 10px;">NEXT DAY ▶</button>
             </div>
             <div id="sm-day-timeline-grid" class="sm-timeline-grid"></div>
-            <div class="sm-recorded-sessions-header">RECORDED FOCUS SESSIONS:</div>
+            <div class="sm-recorded-sessions-header">RECORDED FOCUS SESSIONS FOR THIS DAY:</div>
             <div id="sm-recorded-sessions-list" class="sm-sessions-list"></div>
           </div>
 
           <!-- WEEK PANEL -->
           <div id="sm-stats-panel-week" class="sm-stats-panel">
-            <div class="sm-panel-sub-header-row">
-              <span>✦ 7-DAY PRODUCTIVITY VELOCITY</span>
-              <span id="sm-week-metrics-summary" style="font-size: 0.72rem; color: var(--text-muted);">0.0 hrs total</span>
+            <div class="sm-stats-nav-row">
+              <button id="sm-week-prev" class="sm-btn-sec" style="padding: 3px 10px;">◀ PREV WEEK</button>
+              <div class="sm-nav-date-group">
+                <strong id="sm-week-label" style="font-size: 0.88rem; color: var(--text-normal);">Aug 10 – Aug 16, 2026</strong>
+                <span id="sm-week-metrics-summary" style="font-size: 0.72rem; color: var(--interactive-accent, #a78bfa);">0.0 hrs total</span>
+              </div>
+              <button id="sm-week-next" class="sm-btn-sec" style="padding: 3px 10px;">NEXT WEEK ▶</button>
             </div>
             <div id="sm-week-chart" class="sm-week-chart-grid"></div>
           </div>
@@ -865,9 +877,9 @@ class ScryingMirrorView extends ItemView {
           <!-- MONTH PANEL -->
           <div id="sm-stats-panel-month" class="sm-stats-panel">
             <div class="sm-month-nav-row">
-              <button id="sm-month-prev" class="sm-btn-sec" style="padding: 2px 8px;">◀ PREV</button>
-              <strong id="sm-month-label" style="font-size: 0.9rem; color: var(--text-normal);">August 2026</strong>
-              <button id="sm-month-next" class="sm-btn-sec" style="padding: 2px 8px;">NEXT ▶</button>
+              <button id="sm-month-prev" class="sm-btn-sec" style="padding: 3px 10px;">◀ PREV MONTH</button>
+              <strong id="sm-month-label" style="font-size: 0.92rem; color: var(--text-normal);">August 2026</strong>
+              <button id="sm-month-next" class="sm-btn-sec" style="padding: 3px 10px;">NEXT MONTH ▶</button>
             </div>
             <div id="sm-month-calendar" class="sm-month-grid"></div>
           </div>
@@ -1165,7 +1177,7 @@ class ScryingMirrorView extends ItemView {
       });
     }
 
-    // --- TELEMETRY STATS SCALE TABS ---
+    // --- TELEMETRY STATS SCALE TABS & NAVIGATION EVENTS ---
     container.querySelectorAll('.sm-scale-tab').forEach(tab => {
       tab.addEventListener('click', (e) => {
         container.querySelectorAll('.sm-scale-tab').forEach(t => t.removeClass('active'));
@@ -1180,27 +1192,72 @@ class ScryingMirrorView extends ItemView {
       });
     });
 
+    // DAY PREV / NEXT
+    const dayPrev = container.querySelector('#sm-day-prev');
+    if (dayPrev) {
+      dayPrev.addEventListener('click', async () => {
+        this.selectedDayOffset--;
+        const data = await this.plugin.getTelemetryData();
+        this.renderDayStats(container, data);
+      });
+    }
+
+    const dayNext = container.querySelector('#sm-day-next');
+    if (dayNext) {
+      dayNext.addEventListener('click', async () => {
+        if (this.selectedDayOffset < 0) {
+          this.selectedDayOffset++;
+          const data = await this.plugin.getTelemetryData();
+          this.renderDayStats(container, data);
+        }
+      });
+    }
+
+    // WEEK PREV / NEXT
+    const weekPrev = container.querySelector('#sm-week-prev');
+    if (weekPrev) {
+      weekPrev.addEventListener('click', async () => {
+        this.selectedWeekOffset--;
+        const data = await this.plugin.getTelemetryData();
+        this.renderWeekStats(container, data);
+      });
+    }
+
+    const weekNext = container.querySelector('#sm-week-next');
+    if (weekNext) {
+      weekNext.addEventListener('click', async () => {
+        if (this.selectedWeekOffset < 0) {
+          this.selectedWeekOffset++;
+          const data = await this.plugin.getTelemetryData();
+          this.renderWeekStats(container, data);
+        }
+      });
+    }
+
+    // MONTH PREV / NEXT
     const monthPrev = container.querySelector('#sm-month-prev');
     if (monthPrev) {
-      monthPrev.addEventListener('click', () => {
+      monthPrev.addEventListener('click', async () => {
         this.selectedMonth--;
         if (this.selectedMonth < 1) {
           this.selectedMonth = 12;
           this.selectedYear--;
         }
-        this.renderMonthStats(container);
+        const data = await this.plugin.getTelemetryData();
+        this.renderMonthStats(container, data);
       });
     }
 
     const monthNext = container.querySelector('#sm-month-next');
     if (monthNext) {
-      monthNext.addEventListener('click', () => {
+      monthNext.addEventListener('click', async () => {
         this.selectedMonth++;
         if (this.selectedMonth > 12) {
           this.selectedMonth = 1;
           this.selectedYear++;
         }
-        this.renderMonthStats(container);
+        const data = await this.plugin.getTelemetryData();
+        this.renderMonthStats(container, data);
       });
     }
 
@@ -1601,8 +1658,7 @@ class ScryingMirrorView extends ItemView {
   // --- TELEMETRY & STATS RENDERER ---
   async renderTelemetry(container) {
     const data = await this.plugin.getTelemetryData();
-    const today = new Date().toISOString().split('T')[0];
-    const todayData = data.history[today] || { focusMins: 0, tasksDone: 0, hourly: Array(24).fill(0), sessions: [] };
+    this.cachedTelemetry = data;
 
     const totalHours = (data.totalFocusMins / 60).toFixed(1);
     container.querySelector('#sm-card-focus').textContent = totalHours + 'H';
@@ -1617,22 +1673,48 @@ class ScryingMirrorView extends ItemView {
     const homeStreak = container.querySelector('#sm-stat-streak');
     if (homeStreak) homeStreak.textContent = data.activeStreak + 'd';
 
-    this.renderDayStats(container, todayData);
+    this.renderDayStats(container, data);
     this.renderWeekStats(container, data);
     this.renderMonthStats(container, data);
     this.renderYearStats(container, data);
   }
 
-  renderDayStats(container, todayData) {
+  // DAY STATS WITH PREV/NEXT DAY NAVIGATION
+  renderDayStats(container, data) {
+    if (!data) data = this.cachedTelemetry || { history: {} };
+
+    const targetDateObj = new Date();
+    targetDateObj.setDate(targetDateObj.getDate() + this.selectedDayOffset);
+
+    const dateStr = targetDateObj.toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isToday = dateStr === todayStr;
+
+    const dayOptions = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+    const formattedDate = targetDateObj.toLocaleDateString('en-US', dayOptions);
+    const dayLabelPrefix = isToday ? 'Today — ' : (this.selectedDayOffset === -1 ? 'Yesterday — ' : '');
+
+    const labelElem = container.querySelector('#sm-day-label');
+    if (labelElem) labelElem.textContent = `${dayLabelPrefix}${formattedDate}`;
+
+    // Disable Next button if we are at today
+    const dayNextBtn = container.querySelector('#sm-day-next');
+    if (dayNextBtn) {
+      dayNextBtn.style.opacity = this.selectedDayOffset >= 0 ? '0.4' : '1';
+      dayNextBtn.style.pointerEvents = this.selectedDayOffset >= 0 ? 'none' : 'auto';
+    }
+
+    const dayData = (data && data.history && data.history[dateStr]) || { focusMins: 0, tasksDone: 0, hourly: Array(24).fill(0), sessions: [] };
+
     const summaryLbl = container.querySelector('#sm-day-metrics-summary');
     if (summaryLbl) {
-      summaryLbl.textContent = `Focus: ${todayData.focusMins} mins | Tasks: ${todayData.tasksDone}`;
+      summaryLbl.textContent = `Focus: ${dayData.focusMins} mins | Tasks: ${dayData.tasksDone}`;
     }
 
     const dayGrid = container.querySelector('#sm-day-timeline-grid');
     if (dayGrid) {
       let timelineHtml = '';
-      const hourly = todayData.hourly || Array(24).fill(0);
+      const hourly = dayData.hourly || Array(24).fill(0);
       const maxMins = 60;
 
       for (let h = 0; h < 24; h++) {
@@ -1653,9 +1735,9 @@ class ScryingMirrorView extends ItemView {
 
     const sessionsBox = container.querySelector('#sm-recorded-sessions-list');
     if (sessionsBox) {
-      if (todayData.sessions && todayData.sessions.length > 0) {
+      if (dayData.sessions && dayData.sessions.length > 0) {
         let sHtml = '';
-        todayData.sessions.forEach(s => {
+        dayData.sessions.forEach(s => {
           sHtml += `
             <div class="sm-session-item">
               <span>⏱️ <strong>${s.duration}m Focus</strong> (${s.task})</span>
@@ -1665,12 +1747,14 @@ class ScryingMirrorView extends ItemView {
         });
         sessionsBox.innerHTML = sHtml;
       } else {
-        sessionsBox.innerHTML = `<div class="sm-empty-msg" style="padding: 12px 0;">No pomodoro sessions logged yet today. Click "Focus Chrono" or "+ LOG OFFLINE STUDY" to begin.</div>`;
+        sessionsBox.innerHTML = `<div class="sm-empty-msg" style="padding: 12px 0;">No focus sessions logged for ${isToday ? 'today' : formattedDate}.</div>`;
       }
     }
   }
 
+  // WEEK STATS WITH PREV/NEXT 52+ WEEKS NAVIGATION
   renderWeekStats(container, data) {
+    if (!data) data = this.cachedTelemetry || { history: {} };
     const weekGrid = container.querySelector('#sm-week-chart');
     if (!weekGrid) return;
 
@@ -1678,8 +1762,28 @@ class ScryingMirrorView extends ItemView {
     const now = new Date();
     const dayOfWeek = now.getDay();
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    
+    // Calculate Monday of selected week
     const monday = new Date(now);
-    monday.setDate(now.getDate() + mondayOffset);
+    monday.setDate(now.getDate() + mondayOffset + (this.selectedWeekOffset * 7));
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const mFmt = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const sFmt = sunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    
+    const weekLabel = container.querySelector('#sm-week-label');
+    if (weekLabel) {
+      weekLabel.textContent = `${mFmt} – ${sFmt} ${this.selectedWeekOffset === 0 ? '(Current Week)' : ''}`;
+    }
+
+    // Disable Next button if we are at current week
+    const weekNextBtn = container.querySelector('#sm-week-next');
+    if (weekNextBtn) {
+      weekNextBtn.style.opacity = this.selectedWeekOffset >= 0 ? '0.4' : '1';
+      weekNextBtn.style.pointerEvents = this.selectedWeekOffset >= 0 ? 'none' : 'auto';
+    }
 
     let totalWeekMins = 0;
     let weekHtml = '';
@@ -1714,7 +1818,9 @@ class ScryingMirrorView extends ItemView {
     }
   }
 
+  // MONTH STATS WITH BUG FIX
   renderMonthStats(container, data) {
+    if (!data) data = this.cachedTelemetry || { history: {} };
     const calendarGrid = container.querySelector('#sm-month-calendar');
     if (!calendarGrid) return;
 
@@ -1766,7 +1872,9 @@ class ScryingMirrorView extends ItemView {
     calendarGrid.innerHTML = html;
   }
 
+  // YEAR STATS
   renderYearStats(container, data) {
+    if (!data) data = this.cachedTelemetry || { history: {} };
     const yearGrid = container.querySelector('#sm-year-heatmap');
     if (!yearGrid) return;
 
