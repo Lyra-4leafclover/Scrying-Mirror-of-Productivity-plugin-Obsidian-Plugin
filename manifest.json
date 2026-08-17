@@ -1,7 +1,7 @@
 {
   "id": "scrying-mirror",
   "name": "Scrying Mirror of Productivity",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.0.0",
   "description": "All-in-one focus sanctuary: Pomodoro flow chrono, directives matrix with unlimited nested subtasks, multi-timescale telemetry, and liquid writings vault sync.",
   "author": "Lyra",
