@@ -998,7 +998,7 @@
   color: #a3e635;
 }
 
-/* YEAR */
+/* YEAR HEATMAP (GITHUB-STYLE SPEC-COMPLIANT) */
 .scrying-mirror-obsidian-container .sm-heatmap-legend {
   display: flex;
   align-items: center;
@@ -1009,14 +1009,70 @@
 
 .scrying-mirror-obsidian-container .sm-heatmap-scroll-box {
   overflow-x: auto;
-  padding-bottom: 6px;
+  padding: 8px 0 12px;
 }
 
 .scrying-mirror-obsidian-container .sm-year-grid {
   display: flex;
+  flex-direction: column;
+  min-width: 720px;
+}
+
+.scrying-mirror-obsidian-container .sm-heatmap-board {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scrying-mirror-obsidian-container .sm-heatmap-months-row {
+  display: flex;
+  align-items: center;
+  height: 16px;
+  margin-bottom: 2px;
+}
+
+.scrying-mirror-obsidian-container .sm-heatmap-weekday-spacer {
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.scrying-mirror-obsidian-container .sm-heatmap-cols-months {
+  display: flex;
   gap: 3px;
-  min-width: 680px;
-  height: 95px;
+  flex: 1;
+}
+
+.scrying-mirror-obsidian-container .sm-heat-month-lbl {
+  width: 10px;
+  font-family: var(--font-monospace);
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-align: left;
+}
+
+.scrying-mirror-obsidian-container .sm-heatmap-body-row {
+  display: flex;
+  gap: 6px;
+}
+
+.scrying-mirror-obsidian-container .sm-heatmap-weekdays-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 22px;
+  height: 88px;
+  font-family: var(--font-monospace);
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  text-align: right;
+  padding-right: 4px;
+  flex-shrink: 0;
+}
+
+.scrying-mirror-obsidian-container .sm-heatmap-grid-cols {
+  display: flex;
+  gap: 3px;
 }
 
 .scrying-mirror-obsidian-container .sm-heat-col {
@@ -1029,7 +1085,25 @@
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  transition: all 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.scrying-mirror-obsidian-container .sm-heat-cell:hover:not(.is-future) {
+  transform: scale(1.3);
+  z-index: 10;
+  outline: 1px solid var(--interactive-accent, #a78bfa);
+}
+
+.scrying-mirror-obsidian-container .sm-heat-cell.is-today {
+  outline: 1px solid var(--interactive-accent, #a78bfa);
+}
+
+.scrying-mirror-obsidian-container .sm-heat-cell.is-future {
+  background: transparent;
+  cursor: default;
+  opacity: 0;
 }
 
 .scrying-mirror-obsidian-container .sm-heat-cell.level-0 { background: var(--background-modifier-border); }
@@ -1037,6 +1111,26 @@
 .scrying-mirror-obsidian-container .sm-heat-cell.level-2 { background: #63478c; }
 .scrying-mirror-obsidian-container .sm-heat-cell.level-3 { background: #8b62c4; }
 .scrying-mirror-obsidian-container .sm-heat-cell.level-4 { background: #b794f4; box-shadow: 0 0 6px rgba(183, 148, 244, 0.6); }
+
+/* LIVE HOVER INFO CARD */
+.scrying-mirror-obsidian-container .sm-heatmap-hover-card {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-top: 10px;
+  font-family: var(--font-monospace);
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  transition: all 0.2s ease;
+}
+
+.scrying-mirror-obsidian-container .sm-heatmap-hover-card strong {
+  color: var(--text-normal);
+}
 
 /* 5. LECTURE HUB */
 .scrying-mirror-obsidian-container .sm-lecture-grid {

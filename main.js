@@ -901,6 +901,9 @@ class ScryingMirrorView extends ItemView {
             <div class="sm-heatmap-scroll-box">
               <div id="sm-year-heatmap" class="sm-year-grid"></div>
             </div>
+            <div id="sm-heatmap-hover-info" class="sm-heatmap-hover-card">
+              <span>✦ Hover over any square to view date and focus stats • Click to inspect day</span>
+            </div>
           </div>
         </div>
 
@@ -1872,35 +1875,157 @@ class ScryingMirrorView extends ItemView {
     calendarGrid.innerHTML = html;
   }
 
-  // YEAR STATS
+  // YEAR STATS (365-DAY HEATMAP WITH MONTH LABELS & LIVE HOVER FEEDBACK)
   renderYearStats(container, data) {
     if (!data) data = this.cachedTelemetry || { history: {} };
     const yearGrid = container.querySelector('#sm-year-heatmap');
+    const hoverInfo = container.querySelector('#sm-heatmap-hover-info');
     if (!yearGrid) return;
 
-    let html = '';
+    const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const dayOfWeek = now.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    
+    // Find Monday of current week
+    const currentMonday = new Date(now);
+    currentMonday.setDate(now.getDate() + mondayOffset);
+
+    // Build 52 columns of weeks
+    const weeksData = [];
+    let lastMonth = -1;
 
     for (let w = 51; w >= 0; w--) {
-      html += '<div class="sm-heat-col">';
-      for (let d = 0; d < 7; d++) {
-        const targetDate = new Date(now);
-        targetDate.setDate(now.getDate() - (w * 7 + (6 - d)));
-        const dateStr = targetDate.toISOString().split('T')[0];
-        const dayData = (data && data.history && data.history[dateStr]) || { focusMins: 0, tasksDone: 0 };
-
-        let level = 0;
-        if (dayData.focusMins > 90 || dayData.tasksDone >= 5) level = 4;
-        else if (dayData.focusMins > 50 || dayData.tasksDone >= 3) level = 3;
-        else if (dayData.focusMins > 20 || dayData.tasksDone >= 1) level = 2;
-        else if (dayData.focusMins > 0 || dayData.tasksDone > 0) level = 1;
-
-        html += `<div class="sm-heat-cell level-${level}" title="${dateStr}: ${dayData.focusMins}m focus, ${dayData.tasksDone} tasks"></div>`;
+      const weekMonday = new Date(currentMonday);
+      weekMonday.setDate(currentMonday.getDate() - (w * 7));
+      
+      const month = weekMonday.getMonth();
+      let monthLabel = '';
+      if (month !== lastMonth) {
+        monthLabel = monthsShort[month];
+        lastMonth = month;
       }
-      html += '</div>';
+
+      const days = [];
+      for (let d = 0; d < 7; d++) {
+        const dayDate = new Date(weekMonday);
+        dayDate.setDate(weekMonday.getDate() + d);
+        const dateStr = dayDate.toISOString().split('T')[0];
+        const isFuture = dayDate > now;
+        const dayData = (data && data.history && data.history[dateStr]) || { focusMins: 0, tasksDone: 0 };
+        
+        let level = 0;
+        if (!isFuture) {
+          if (dayData.focusMins > 90 || dayData.tasksDone >= 5) level = 4;
+          else if (dayData.focusMins > 50 || dayData.tasksDone >= 3) level = 3;
+          else if (dayData.focusMins > 20 || dayData.tasksDone >= 1) level = 2;
+          else if (dayData.focusMins > 0 || dayData.tasksDone > 0) level = 1;
+        }
+
+        days.push({
+          date: dayDate,
+          dateStr,
+          isFuture,
+          level,
+          focusMins: dayData.focusMins,
+          tasksDone: dayData.tasksDone
+        });
+      }
+
+      weeksData.push({
+        monthLabel,
+        days
+      });
     }
 
+    let html = `
+      <div class="sm-heatmap-board">
+        <div class="sm-heatmap-months-row">
+          <div class="sm-heatmap-weekday-spacer"></div>
+          <div class="sm-heatmap-cols-months">
+            ${weeksData.map(w => `<div class="sm-heat-month-lbl">${w.monthLabel}</div>`).join('')}
+          </div>
+        </div>
+
+        <div class="sm-heatmap-body-row">
+          <div class="sm-heatmap-weekdays-col">
+            <span>Mon</span>
+            <span></span>
+            <span>Wed</span>
+            <span></span>
+            <span>Fri</span>
+            <span></span>
+            <span></span>
+          </div>
+
+          <div class="sm-heatmap-grid-cols">
+            ${weeksData.map(w => `
+              <div class="sm-heat-col">
+                ${w.days.map(d => {
+                  if (d.isFuture) {
+                    return `<div class="sm-heat-cell is-future"></div>`;
+                  }
+                  const formatted = d.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                  const tooltip = `${formatted}: ${d.focusMins}m focus • ${d.tasksDone} tasks`;
+                  return `
+                    <div class="sm-heat-cell level-${d.level} ${d.dateStr === todayStr ? 'is-today' : ''}" 
+                         aria-label="${tooltip}"
+                         data-date="${d.dateStr}"
+                         data-formatted="${formatted}"
+                         data-mins="${d.focusMins}"
+                         data-tasks="${d.tasksDone}"
+                         title="${tooltip}"></div>
+                  `;
+                }).join('')}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
     yearGrid.innerHTML = html;
+
+    // Bind Hover and Click events
+    yearGrid.querySelectorAll('.sm-heat-cell:not(.is-future)').forEach(cell => {
+      cell.addEventListener('mouseenter', () => {
+        const formatted = cell.getAttribute('data-formatted');
+        const mins = cell.getAttribute('data-mins');
+        const tasks = cell.getAttribute('data-tasks');
+        if (hoverInfo) {
+          hoverInfo.innerHTML = `📅 <strong>${formatted}</strong> — <span style="color: var(--interactive-accent, #a78bfa); font-weight: 600;">${mins} mins Focus</span> • <span style="color: #a3e635; font-weight: 600;">${tasks} Tasks Crushed</span> <span style="color: var(--text-muted); font-size: 0.7rem; margin-left: 8px;">(Click to view Day timeline)</span>`;
+        }
+      });
+
+      cell.addEventListener('mouseleave', () => {
+        if (hoverInfo) {
+          hoverInfo.innerHTML = `<span>✦ Hover over any square to view date and focus stats • Click to inspect day</span>`;
+        }
+      });
+
+      cell.addEventListener('click', () => {
+        const dateStr = cell.getAttribute('data-date');
+        if (dateStr) {
+          const clickedDate = new Date(dateStr + 'T00:00:00');
+          const todayDate = new Date(new Date().toDateString());
+          const diffDays = Math.round((clickedDate - todayDate) / (1000 * 60 * 60 * 24));
+          
+          this.selectedDayOffset = diffDays;
+          this.statsScale = 'day';
+
+          container.querySelectorAll('.sm-scale-tab').forEach(t => t.removeClass('active'));
+          const dayTab = container.querySelector('.sm-scale-tab[data-scale="day"]');
+          if (dayTab) dayTab.addClass('active');
+
+          container.querySelectorAll('.sm-stats-panel').forEach(p => p.removeClass('active'));
+          const dayPanel = container.querySelector('#sm-stats-panel-day');
+          if (dayPanel) dayPanel.addClass('active');
+
+          this.renderDayStats(container, data);
+        }
+      });
+    });
   }
 
   // --- JOURNAL LOGS RENDERER WITH RICH OBSIDIAN MARKDOWN & IMAGE SUPPORT ---
